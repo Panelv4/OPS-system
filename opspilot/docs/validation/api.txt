@@ -1,0 +1,143 @@
+TAP version 13
+# Subtest: production API and PostgreSQL regression suite
+    # Subtest: creates an isolated demo without exposing password hashes
+    ok 1 - creates an isolated demo without exposing password hashes
+      ---
+      duration_ms: 116.521681
+      type: 'test'
+      ...
+    # Subtest: health check verifies the database
+    ok 2 - health check verifies the database
+      ---
+      duration_ms: 12.519039
+      type: 'test'
+      ...
+    # Subtest: requires authentication and never returns password hashes
+    ok 3 - requires authentication and never returns password hashes
+      ---
+      duration_ms: 17.647274
+      type: 'test'
+      ...
+    # Subtest: isolates workspace lists and rejects direct cross-tenant reads and writes
+    ok 4 - isolates workspace lists and rejects direct cross-tenant reads and writes
+      ---
+      duration_ms: 30.797308
+      type: 'test'
+      ...
+    # Subtest: rejects injected tenant selectors and unknown fields
+    ok 5 - rejects injected tenant selectors and unknown fields
+      ---
+      duration_ms: 8.26864
+      type: 'test'
+      ...
+    # Subtest: enforces tenant integrity in database foreign keys
+    ok 6 - enforces tenant integrity in database foreign keys
+      ---
+      duration_ms: 23.31365
+      type: 'test'
+      ...
+    # Subtest: rejects cross-origin and missing-origin writes
+    ok 7 - rejects cross-origin and missing-origin writes
+      ---
+      duration_ms: 13.29064
+      type: 'test'
+      ...
+    # Subtest: requires an invoice customer from the same workspace
+    ok 8 - requires an invoice customer from the same workspace
+      ---
+      duration_ms: 11.955136
+      type: 'test'
+      ...
+    # Subtest: records partial payments once when a request is retried
+    ok 9 - records partial payments once when a request is retried
+      ---
+      duration_ms: 37.598475
+      type: 'test'
+      ...
+    # Subtest: serializes concurrent payments and prevents overpayment
+    ok 10 - serializes concurrent payments and prevents overpayment
+      ---
+      duration_ms: 29.541016
+      type: 'test'
+      ...
+    # Subtest: does not allow financial history to be overwritten
+    ok 11 - does not allow financial history to be overwritten
+      ---
+      duration_ms: 28.24884
+      type: 'test'
+      ...
+    # Subtest: rejects negative stock and preserves traced adjustments
+    ok 12 - rejects negative stock and preserves traced adjustments
+      ---
+      duration_ms: 25.125038
+      type: 'test'
+      ...
+    # Subtest: executes approved workflows and logs successful runs
+    ok 13 - executes approved workflows and logs successful runs
+      ---
+      duration_ms: 38.076403
+      type: 'test'
+      ...
+    # Subtest: supports projects, tasks, employee and vendor records
+    ok 14 - supports projects, tasks, employee and vendor records
+      ---
+      duration_ms: 52.754923
+      type: 'test'
+      ...
+    # Subtest: uploads and downloads private documents without cross-tenant access
+    ok 15 - uploads and downloads private documents without cross-tenant access
+      ---
+      duration_ms: 37.973783
+      type: 'test'
+      ...
+    # Subtest: rejects file content that does not match its extension
+    ok 16 - rejects file content that does not match its extension
+      ---
+      duration_ms: 7.506345
+      type: 'test'
+      ...
+    # Subtest: enforces role boundaries on records, settings, and AI retrieval
+    ok 17 - enforces role boundaries on records, settings, and AI retrieval
+      ---
+      duration_ms: 46.379713
+      type: 'test'
+      ...
+    # Subtest: returns deterministic financial answers without changing data
+    ok 18 - returns deterministic financial answers without changing data
+      ---
+      duration_ms: 34.509837
+      type: 'test'
+      ...
+    # Subtest: persists dashboard configuration and notification read status
+    ok 19 - persists dashboard configuration and notification read status
+      ---
+      duration_ms: 26.24549
+      type: 'test'
+      ...
+    # Subtest: enforces a shared database-backed rate limit
+    ok 20 - enforces a shared database-backed rate limit
+      ---
+      duration_ms: 7.239565
+      type: 'test'
+      ...
+    # Subtest: authenticates valid credentials, rejects invalid ones, and revokes logout sessions
+    ok 21 - authenticates valid credentials, rejects invalid ones, and revokes logout sessions
+      ---
+      duration_ms: 120.118423
+      type: 'test'
+      ...
+    1..21
+ok 1 - production API and PostgreSQL regression suite
+  ---
+  duration_ms: 1100.059225
+  type: 'suite'
+  ...
+1..1
+# tests 21
+# suites 1
+# pass 21
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1709.193007

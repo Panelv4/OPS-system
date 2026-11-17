@@ -1,0 +1,32 @@
+"use client";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowRight, ArrowUp, ChartNoAxesCombined, CircleDollarSign, FileText, Layers3, LoaderCircle, LockKeyhole, Package, Plus, Sparkles, WandSparkles, Zap } from "lucide-react";
+import { api } from "../lib/client";
+import type { WorkspaceData } from "../lib/types";
+import type { RecordDraft } from "./RecordForms";
+import { Avatar, Button } from "./UI";
+type Message = { id: string; role: "user" | "assistant"; content: string; provider?: string; draft?: RecordDraft };
+interface Response { answer: string; provider: string; draft?: RecordDraft }
+const suggestions = [
+  { icon: ChartNoAxesCombined, title: "See the bigger picture", question: "How is our business performing?", color: "green" },
+  { icon: CircleDollarSign, title: "Follow the money", question: "What is our revenue this month?", color: "purple" },
+  { icon: FileText, title: "Find your next follow-up", question: "Which customers have overdue payments?", color: "blue" },
+  { icon: Package, title: "Stay a step ahead", question: "Which products are low in stock?", color: "orange" },
+];
+export function Intelligence({ data, initialQuestion, onDraft }: { data: WorkspaceData; initialQuestion?: string; onDraft: (draft: RecordDraft) => void }) {
+  const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [busy, setBusy] = useState(false); const started = useRef(false); const end = useRef<HTMLDivElement>(null); const inputRef = useRef<HTMLTextAreaElement>(null);
+  const send = useCallback(async (question: string) => {
+    if (!question.trim() || busy) return;
+    setMessages(m => [...m, { id: crypto.randomUUID(), role: "user", content: question.trim() }]); setInput(""); setBusy(true);
+    try { const result = await api<Response>("/api/intelligence", "POST", { question: question.trim() }); setMessages(m => [...m, { id: crypto.randomUUID(), role: "assistant", content: result.answer, provider: result.provider, draft: result.draft }]); }
+    catch (e) { setMessages(m => [...m, { id: crypto.randomUUID(), role: "assistant", content: e instanceof Error ? e.message : "I couldn’t finish that request. Please try again.", provider: "Request not completed" }]); }
+    finally { setBusy(false); inputRef.current?.focus(); }
+  }, [busy]);
+  useEffect(() => { if (!initialQuestion || started.current) return; const timer = setTimeout(() => { started.current = true; void send(initialQuestion); }, 0); return () => clearTimeout(timer); }, [initialQuestion, send]);
+  useEffect(() => { if (messages.length) end.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, busy]);
+  function submit(e: FormEvent) { e.preventDefault(); void send(input); }
+  return <div className={`intelligence-page fade-in ${messages.length ? "has-conversation" : ""}`}><div className="intelligence-topbar"><div className="intelligence-title"><span className="soft-icon"><Sparkles size={19}/></span><h2>OpsPilot Intelligence</h2><span className="beta-badge">YOUR BUSINESS COPILOT</span></div><Button variant="secondary" onClick={() => { setMessages([]); setInput(""); inputRef.current?.focus(); }} disabled={busy}><Plus size={15}/>New conversation</Button></div>
+    {!messages.length ? <div className="assistant-welcome"><div className="intelligence-emblem"><div className="emblem-orbit orbit-one"/><div className="emblem-orbit orbit-two"/><Sparkles size={36} strokeWidth={1.35}/><span className="emblem-star">✦</span></div><div className="eyebrow">A CLEARER VIEW OF WHAT’S NEXT</div><h1>A little insight.<br/><span>A big advantage.</span></h1><p>Hi {data.user.name.split(" ")[0]}. Your numbers, your people, your next move.<br/>Let’s connect the dots and move your business forward.</p><div className="assistant-suggestions">{suggestions.map(({ icon: Icon, title, question, color }) => <button key={title} onClick={() => void send(question)}><span className={`suggestion-icon suggestion-${color}`}><Icon size={20}/></span><strong>{title}</strong><span>{question}</span><ArrowRight size={16}/></button>)}</div></div> : <div className="conversation">{messages.map(message => <div key={message.id} className={`message message-${message.role}`}><div className="message-avatar">{message.role === "user" ? <Avatar name={data.user.name} size="sm"/> : <span className="assistant-avatar"><Sparkles size={17}/></span>}</div><div className="message-body"><div className="message-heading"><strong>{message.role === "user" ? data.user.name : "OpsPilot Intelligence"}</strong>{message.provider && <span>{message.provider}</span>}</div><div className="message-text">{message.content}</div>{message.draft && <div className="message-draft"><span className="soft-icon"><Zap size={19}/></span><div><strong>{message.draft.name}</strong><span>Draft · Not activated</span></div><Button variant="secondary" onClick={() => onDraft(message.draft!)}>Review draft<ArrowRight size={14}/></Button></div>}</div></div>)}{busy && <div className="message message-assistant"><span className="assistant-avatar"><Sparkles size={17}/></span><div className="assistant-thinking"><span/><span/><span/><small>Connecting the dots in your workspace...</small></div></div>}<div ref={end}/></div>}
+    <div className="assistant-composer-wrap"><form className="assistant-composer" onSubmit={submit}><textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input); } }} placeholder="Ask anything about your business..." aria-label="Ask OpsPilot Intelligence" rows={2} maxLength={1000} disabled={busy}/><div className="composer-bottom"><span><Layers3 size={13}/>Connected to your workspace</span><button type="submit" aria-label="Send question" disabled={!input.trim() || busy}>{busy ? <LoaderCircle size={18} className="spin"/> : <ArrowUp size={19}/>}</button></div></form><div className="assistant-disclaimer"><LockKeyhole size={12}/><span>Your permissions. Your data. Verified numbers, not guesses.</span><details><summary>How it works</summary><p>Local mode uses supported queries against your authorized records. When explicitly enabled by your instance administrator, an AI provider can interpret your question. Financial figures are always calculated by OpsPilot, never generated by a language model. Nothing is changed without confirmation.</p></details></div></div>
+  </div>;
+}

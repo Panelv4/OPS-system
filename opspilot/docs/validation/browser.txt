@@ -1,0 +1,15 @@
+
+Running 10 tests using 1 worker
+
+  ✓   1 opspilot/tests/browser.spec.ts:33:1 › dashboard uses live records and renders without runtime errors (950ms)
+  ✓   2 opspilot/tests/browser.spec.ts:34:1 › customer creation persists and is searchable (1.1s)
+  ✓   3 opspilot/tests/browser.spec.ts:35:1 › invoice calculation and partial payment work end to end (1.6s)
+  ✓   4 opspilot/tests/browser.spec.ts:36:1 › task completion survives a page reload (787ms)
+  ✓   5 opspilot/tests/browser.spec.ts:37:1 › Intelligence answers from workspace records (692ms)
+  ✓   6 opspilot/tests/browser.spec.ts:38:1 › customization, dark theme, and mobile navigation work (1.5s)
+  ✓   7 opspilot/tests/browser.spec.ts:39:1 › document upload and protected download work (969ms)
+  ✓   8 opspilot/tests/browser.spec.ts:40:1 › CRM pipeline supports moving opportunities between stages (1.0s)
+  ✓   9 opspilot/tests/browser.spec.ts:42:1 › registration, logout, and login work through the interface (1.6s)
+  ✓  10 opspilot/tests/browser.spec.ts:64:1 › keyboard search treats untrusted record text as text, not markup (905ms)
+
+  10 passed (12.6s)

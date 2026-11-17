@@ -1,0 +1,189 @@
+TAP version 13
+# Subtest: deterministic financial calculations
+    # Subtest: parses whole amounts and decimal cents exactly
+    ok 1 - parses whole amounts and decimal cents exactly
+      ---
+      duration_ms: 1.106444
+      type: 'test'
+      ...
+    # Subtest: rejects precision loss, signs, scientific notation, and oversized amounts
+    ok 2 - rejects precision loss, signs, scientific notation, and oversized amounts
+      ---
+      duration_ms: 0.360022
+      type: 'test'
+      ...
+    # Subtest: calculates line totals with discounts and basis-point taxes
+    ok 3 - calculates line totals with discounts and basis-point taxes
+      ---
+      duration_ms: 0.222497
+      type: 'test'
+      ...
+    # Subtest: rounds tax to the nearest cent deterministically
+    ok 4 - rounds tax to the nearest cent deterministically
+      ---
+      duration_ms: 0.149008
+      type: 'test'
+      ...
+    # Subtest: rejects invalid quantities, tax rates, discounts, and financial overflow
+    ok 5 - rejects invalid quantities, tax rates, discounts, and financial overflow
+      ---
+      duration_ms: 0.309577
+      type: 'test'
+      ...
+    # Subtest: attributes revenue to payment dates, not invoice creation dates
+    ok 6 - attributes revenue to payment dates, not invoice creation dates
+      ---
+      duration_ms: 0.597
+      type: 'test'
+      ...
+    # Subtest: calculates partial outstanding balances and period expenses
+    ok 7 - calculates partial outstanding balances and period expenses
+      ---
+      duration_ms: 0.280478
+      type: 'test'
+      ...
+    1..7
+ok 1 - deterministic financial calculations
+  ---
+  duration_ms: 4.06349
+  type: 'suite'
+  ...
+# Subtest: role-based permission boundaries
+    # Subtest: gives owners access to all supported modules
+    ok 1 - gives owners access to all supported modules
+      ---
+      duration_ms: 0.96853
+      type: 'test'
+      ...
+    # Subtest: denies financial, document, and employee records to employees
+    ok 2 - denies financial, document, and employee records to employees
+      ---
+      duration_ms: 0.415321
+      type: 'test'
+      ...
+    # Subtest: separates HR and accounting permissions
+    ok 3 - separates HR and accounting permissions
+      ---
+      duration_ms: 0.277687
+      type: 'test'
+      ...
+    # Subtest: supports employee task collaboration
+    ok 4 - supports employee task collaboration
+      ---
+      duration_ms: 0.11598
+      type: 'test'
+      ...
+    1..4
+ok 2 - role-based permission boundaries
+  ---
+  duration_ms: 2.197597
+  type: 'suite'
+  ...
+# Subtest: record input validation
+    # Subtest: rejects client-supplied tenant identifiers
+    ok 1 - rejects client-supplied tenant identifiers
+      ---
+      duration_ms: 3.322397
+      type: 'test'
+      ...
+    # Subtest: rejects nonexistent dates
+    ok 2 - rejects nonexistent dates
+      ---
+      duration_ms: 0.565808
+      type: 'test'
+      ...
+    # Subtest: rejects statuses from unrelated modules
+    ok 3 - rejects statuses from unrelated modules
+      ---
+      duration_ms: 0.379945
+      type: 'test'
+      ...
+    # Subtest: requires workflows to be saved as drafts before activation
+    ok 4 - requires workflows to be saved as drafts before activation
+      ---
+      duration_ms: 0.192119
+      type: 'test'
+      ...
+    # Subtest: rejects unknown record kinds and excessive names
+    ok 5 - rejects unknown record kinds and excessive names
+      ---
+      duration_ms: 0.308253
+      type: 'test'
+      ...
+    # Subtest: accepts a valid task and applies defaults
+    ok 6 - accepts a valid task and applies defaults
+      ---
+      duration_ms: 0.330717
+      type: 'test'
+      ...
+    1..6
+ok 3 - record input validation
+  ---
+  duration_ms: 5.378642
+  type: 'suite'
+  ...
+# Subtest: safe exports and document validation
+    # Subtest: neutralizes spreadsheet formula injection and quotes CSV values
+    ok 1 - neutralizes spreadsheet formula injection and quotes CSV values
+      ---
+      duration_ms: 0.229441
+      type: 'test'
+      ...
+    # Subtest: validates PNG and PDF magic bytes
+    ok 2 - validates PNG and PDF magic bytes
+      ---
+      duration_ms: 0.224286
+      type: 'test'
+      ...
+    # Subtest: rejects spoofed file extensions
+    ok 3 - rejects spoofed file extensions
+      ---
+      duration_ms: 0.160237
+      type: 'test'
+      ...
+    # Subtest: enforces nonempty files, size limits, and valid UTF-8 text
+    ok 4 - enforces nonempty files, size limits, and valid UTF-8 text
+      ---
+      duration_ms: 0.270572
+      type: 'test'
+      ...
+    1..4
+ok 4 - safe exports and document validation
+  ---
+  duration_ms: 1.041771
+  type: 'suite'
+  ...
+# Subtest: password hashing
+    # Subtest: uses distinct salts and never stores plaintext
+    ok 1 - uses distinct salts and never stores plaintext
+      ---
+      duration_ms: 104.669997
+      type: 'test'
+      ...
+    # Subtest: accepts only the correct password and handles malformed hashes
+    ok 2 - accepts only the correct password and handles malformed hashes
+      ---
+      duration_ms: 141.573856
+      type: 'test'
+      ...
+    1..2
+ok 5 - password hashing
+  ---
+  duration_ms: 246.659667
+  type: 'suite'
+  ...
+# Subtest: generated migrations install all tables on a fresh database and can be rerun
+ok 6 - generated migrations install all tables on a fresh database and can be rerun
+  ---
+  duration_ms: 158.006573
+  type: 'test'
+  ...
+1..6
+# tests 24
+# suites 5
+# pass 24
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 908.458425
