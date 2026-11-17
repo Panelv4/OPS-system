@@ -1,10 +1,11 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from "node:crypto";
 import { promisify } from "node:util";
 import { cookies } from "next/headers";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { sessions, memberships, users, workspaces, rateLimits } from "@/db/schema";
 import { canAccess } from "../lib/domain";
+import { clientIp, config } from "./config";
 import type { RecordKind, Role } from "../lib/types";
 const scrypt = promisify(scryptCallback);
 const COOKIE = "opspilot_session";
@@ -16,7 +17,7 @@ export async function createSession(userId: string, workspaceId: string) {
   const token = randomBytes(32).toString("hex"); const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await db.insert(sessions).values({ tokenHash: hashToken(token), userId, workspaceId, expiresAt });
   const jar = await cookies();
-  jar.set(COOKIE, token, { httpOnly: true, secure: process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false", sameSite: "lax", path: "/", expires: expiresAt });
+  jar.set(COOKIE, token, { httpOnly: true, secure: config().cookieSecure, sameSite: "lax", path: "/", expires: expiresAt });
 }
 export async function getSession() {
   const token = (await cookies()).get(COOKIE)?.value;
@@ -34,6 +35,30 @@ export async function requireSession(kind?: RecordKind) {
   return session;
 }
 export async function logout() { const jar = await cookies(); const token = jar.get(COOKIE)?.value; if (token) await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token))); jar.delete(COOKIE); }
+/**
+ * Removes expired sessions and rate-limit buckets. Table growth from expired
+ * rows is the cheapest denial-of-service an anonymous visitor can cause, so
+ * this runs opportunistically during authentication traffic.
+ */
+export const DEMO_WORKSPACE_TTL_MS = 24 * 60 * 60 * 1000;
+
+export async function pruneExpiredData() {
+  const now = new Date();
+  const demoCutoff = new Date(now.getTime() - DEMO_WORKSPACE_TTL_MS);
+  try {
+    await Promise.all([
+      db.delete(sessions).where(lt(sessions.expiresAt, now)),
+      db.delete(rateLimits).where(lt(rateLimits.expiresAt, now)),
+      // Disposable demo workspaces cascade to their records, files and events.
+      db.delete(workspaces).where(and(eq(workspaces.isDemo, true), lt(workspaces.createdAt, demoCutoff))),
+    ]);
+  } catch (error) {
+    console.error("OpsPilot housekeeping error:", error instanceof Error ? error.message : "unknown");
+  }
+}
+
+export { clientIp };
+
 export function assertOrigin(request: Request, multipart = false) {
   const origin = request.headers.get("origin"); const host = request.headers.get("host");
   let source: URL;

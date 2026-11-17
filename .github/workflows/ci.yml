@@ -23,8 +23,8 @@ jobs:
       TEST_BASE_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -34,7 +34,7 @@ jobs:
       - run: npx next typegen
       - run: npm exec tsc -- --noEmit --pretty false
       - run: npm run build
-      - run: npx tsx --test opspilot/tests/domain.test.ts opspilot/tests/migrations.test.ts
+      - run: npx tsx --test opspilot/tests/domain.test.ts opspilot/tests/migrations.test.ts opspilot/tests/hardening.test.ts
       - run: npm audit --omit=dev --audit-level=moderate
       - run: npx playwright install --with-deps chromium
       - name: Start production test server
@@ -48,7 +48,7 @@ jobs:
           exit 1
       - run: npx tsx --test opspilot/tests/api.test.ts
       - run: npx playwright test --config=opspilot/tests/playwright.config.ts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: opspilot-test-artifacts

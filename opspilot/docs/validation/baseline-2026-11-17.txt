@@ -1,0 +1,15 @@
+Baseline re-validation, 2026-11-17, commit 5cbc3af (before hardening)
+
+Environment: Node.js 22.22.3 · Next.js 16.4.6 · PostgreSQL 18.6 (embedded, port 55432)
+
+npm ci                                       pass (396 packages)
+npx tsx opspilot/scripts/migrate.ts          pass
+npm run lint                                 pass
+npx next typegen                             pass
+npx tsc --noEmit --pretty false              pass
+npm run build                                pass (14 routes)
+npm audit --omit=dev --audit-level=moderate  0 vulnerabilities
+npx tsx --test domain + migrations           24/24 pass
+npx tsx --test api.test.ts                   21/21 pass
+Playwright browser suite                     not runnable here (no Chromium download);
+                                             passed 10/10 in CI run 44120484594

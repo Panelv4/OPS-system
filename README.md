@@ -4,7 +4,7 @@
 
 A new, working business-workspace foundation built with Next.js App Router, React, TypeScript, PostgreSQL, and Drizzle ORM. Open `/` for the application, `/welcome` for the product home, or `/login` to create a fresh business workspace.
 
-> **Delivery status: functional foundation, not a complete production ERP or commercially hardened SaaS.** The large product roadmap is not fully implemented. See [unfinished features](opspilot/docs/UNFINISHED.md), [security notes](opspilot/docs/SECURITY.md), and the [code review](opspilot/docs/CODE_REVIEW.md). No compliance certification is claimed.
+> **Delivery status: functional foundation, not a complete production ERP or commercially hardened SaaS.** There is no billing, email delivery, member invitation, or background-job engine yet. Read [PRODUCTION_READINESS.md](opspilot/docs/PRODUCTION_READINESS.md) before promising a launch date, and [TASKS.md](opspilot/docs/TASKS.md) for what is next. The large product roadmap is not fully implemented. See [unfinished features](opspilot/docs/UNFINISHED.md), [security notes](opspilot/docs/SECURITY.md), the [code review](opspilot/docs/CODE_REVIEW.md), the [audit](opspilot/docs/AUDIT.md), [security audit](opspilot/docs/SECURITY_AUDIT.md), [feature matrix](opspilot/docs/FEATURE_MATRIX.md), and [roadmap](opspilot/docs/IMPLEMENTATION_ROADMAP.md). No compliance certification is claimed.
 
 ## What works
 
@@ -30,6 +30,8 @@ Requirements: Node.js 22+, npm, PostgreSQL 16+, and a **fresh** database.
 1. Install dependencies: `npm ci`.
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` to your database.
 3. For local HTTP only, set `COOKIE_SECURE=false`. Use `true` behind HTTPS.
+   Set `TRUST_PROXY=true` only when a proxy you control (Vercel, Cloudflare, nginx) overwrites
+   `X-Forwarded-For`; otherwise forwarded headers are ignored and per-client rate limiting is off.
 4. Apply migrations: `npx tsx opspilot/scripts/migrate.ts`.
 5. Start development: `npm run dev`.
 6. Visit `http://localhost:3000` or register at `/login?mode=register`.
@@ -40,9 +42,9 @@ The managed sandbox uses `drizzle-kit push` for schema provisioning. The migrati
 
 ## Docker
 
-Set `POSTGRES_PASSWORD` to a strong URL-safe value in `.env`, then run `docker compose up --build`. The app binds to loopback port 3000 by default, and the container applies migrations before starting. PostgreSQL data is stored in a named volume. Use a TLS reverse proxy and secure cookies for a non-local installation.
+Set `POSTGRES_PASSWORD` to a strong URL-safe value in `.env`, then run `docker compose up --build`. The app binds to loopback port 3000 by default. A one-shot `migrate` service applies migrations and the app waits for it to finish, so scaling to several replicas cannot race a schema change. PostgreSQL data is stored in a named volume. Use a TLS reverse proxy and secure cookies for a non-local installation.
 
-Docker and hosted GitHub Actions configuration are included but were not executed in the delivery sandbox. The production Next.js runtime, database, migrations, API, and Chromium browser tests are validated separately. See [deployment](opspilot/docs/DEPLOYMENT.md).
+Docker and hosted GitHub Actions configuration are included; GitHub Actions runs on every push, while `docker build` and `docker compose up` were only verified by simulating the image's file layout in the delivery sandbox. The production Next.js runtime, database, migrations, API, and Chromium browser tests are validated separately. See [deployment](opspilot/docs/DEPLOYMENT.md).
 
 ## Tests
 
