@@ -1,0 +1,78 @@
+import "dotenv/config";
+import { test, expect } from "@playwright/test";
+import { randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { db, pool } from "../../src/db";
+import { sessions, workspaces, users, files, payments, stockMovements } from "../../src/db/schema";
+import { createDemoWorkspace } from "../../src/opspilot/server/seed";
+import { hashToken } from "../../src/opspilot/server/security";
+const fixtures = new WeakMap<object, { workspaceId: string; userId: string }[]>();
+test.beforeEach(async ({ page }) => {
+  const fixture = await createDemoWorkspace();
+  fixtures.set(page, [{ workspaceId: fixture.workspace.id, userId: fixture.user.id }]);
+  const token = randomBytes(32).toString("hex");
+  await db.insert(sessions).values({ tokenHash: hashToken(token), workspaceId: fixture.workspace.id, userId: fixture.user.id, expiresAt: new Date(Date.now() + 3600000) });
+  const url = process.env.TEST_BASE_URL ?? "http://localhost:3000";
+  await page.context().addCookies([{ name: "opspilot_session", value: token, url, httpOnly: true, sameSite: "Lax", secure: url.startsWith("https:") }]);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /Good morning/ })).toBeVisible({ timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+});
+test.afterEach(async ({ page }) => {
+  const created = fixtures.get(page); if (!created) return;
+  for (const fixture of created) await db.transaction(async tx => {
+    await tx.delete(files).where(eq(files.workspaceId, fixture.workspaceId));
+    await tx.delete(payments).where(eq(payments.workspaceId, fixture.workspaceId));
+    await tx.delete(stockMovements).where(eq(stockMovements.workspaceId, fixture.workspaceId));
+    await tx.delete(workspaces).where(eq(workspaces.id, fixture.workspaceId));
+    await tx.delete(users).where(eq(users.id, fixture.userId));
+  });
+  fixtures.delete(page);
+});
+test.afterAll(async () => { await pool.end(); });
+test("dashboard uses live records and renders without runtime errors", async ({ page }) => { const errors: string[] = []; page.on("pageerror", e => errors.push(e.message)); await expect(page.locator(".metric-grid")).toContainText("$128,450"); await expect(page.locator(".metric-grid")).toContainText("$42,680"); await expect(page.locator(".pipeline-value")).toContainText("$81,500"); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await page.screenshot({ path: "opspilot/tests/artifacts/dashboard.png", fullPage: true }); expect(errors).toEqual([]); });
+test("customer creation persists and is searchable", async ({ page }) => { await page.getByRole("button", { name: "New customer", exact: true }).click(); const dialog = page.getByRole("dialog"); await dialog.getByLabel("Customer name").fill("Aurora Browser Test"); await dialog.getByLabel("Email address").fill("aurora@example.com"); await dialog.getByRole("button", { name: "Create customer", exact: true }).click(); await expect(dialog).not.toBeVisible(); await page.getByRole("button", { name: "CRM & Customers", exact: true }).click(); await page.getByRole("textbox", { name: "Search customers" }).fill("Aurora Browser"); await expect(page.locator(".records-table")).toContainText("Aurora Browser Test"); await page.reload(); await page.getByRole("textbox", { name: "Search customers" }).fill("Aurora Browser"); await expect(page.locator(".records-table")).toContainText("aurora@example.com"); });
+test("invoice calculation and partial payment work end to end", async ({ page }) => { await page.getByRole("button", { name: "Create invoice", exact: true }).click(); const dialog = page.getByRole("dialog"); await dialog.getByLabel("Invoice number").fill("BROWSER-INVOICE"); await dialog.getByLabel("Bill to").selectOption({ label: "Linear Studio" }); await dialog.getByLabel("Unit price (USD)").fill("1250.00"); await dialog.getByLabel("Quantity", { exact: true }).fill("2"); await dialog.getByLabel("Tax rate (%)").fill("10"); await dialog.getByLabel("Discount (USD)").fill("50.00"); await expect(dialog.locator(".invoice-total-preview")).toContainText("$2,695.00"); await dialog.getByRole("button", { name: "Create invoice", exact: true }).click(); await expect(dialog).not.toBeVisible(); await page.getByRole("button", { name: "Sales & Invoices", exact: true }).click(); await page.getByRole("textbox", { name: "Search invoices" }).fill("BROWSER-INVOICE"); await page.getByRole("button", { name: "BROWSER-INVOICE Linear Studio" }).click(); await page.getByLabel("Payment amount in USD").fill("695.00"); await page.getByRole("button", { name: "Record payment", exact: true }).click(); await expect(page.locator(".invoice-summary.balance")).toContainText("$2,000.00"); await expect(page.locator(".record-history")).toContainText("+$695.00"); });
+test("task completion survives a page reload", async ({ page }) => { const checkbox = page.getByRole("checkbox", { name: "Mark Review homepage designs complete" }); await checkbox.click(); await expect(page.getByRole("checkbox", { name: "Mark Review homepage designs incomplete" })).toHaveAttribute("aria-checked", "true"); await page.reload(); await expect(page.getByRole("checkbox", { name: "Mark Review homepage designs incomplete" })).toHaveAttribute("aria-checked", "true"); });
+test("Intelligence answers from workspace records", async ({ page }) => { await page.getByRole("button", { name: "OpsPilot AI", exact: true }).click(); await page.getByRole("textbox", { name: "Ask OpsPilot Intelligence" }).fill("What is our revenue this month?"); await page.getByRole("button", { name: "Send question" }).click(); await expect(page.locator(".message-assistant .message-text")).toContainText("Revenue received: $128,450"); await expect(page.locator(".message-heading")).toContainText(["Alex Morgan", "OpsPilot Intelligence"]); });
+test("customization, dark theme, and mobile navigation work", async ({ page }) => { await page.getByRole("button", { name: "Customize", exact: true }).click(); await page.getByRole("checkbox", { name: /Quick actions/ }).uncheck(); await page.getByRole("button", { name: "Save layout", exact: true }).click(); await expect(page.getByRole("heading", { name: "Quick actions", exact: true })).not.toBeVisible(); await page.getByRole("button", { name: "Switch to dark theme" }).click(); await expect(page.locator("html")).toHaveAttribute("data-theme", "dark"); await page.screenshot({ path: "opspilot/tests/artifacts/dark.png", fullPage: true }); await page.reload(); await expect(page.locator("html")).toHaveAttribute("data-theme", "dark"); await expect(page.getByRole("heading", { name: "Quick actions", exact: true })).not.toBeVisible(); await page.setViewportSize({ width: 390, height: 844 }); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await page.getByRole("button", { name: "Toggle navigation" }).click(); await page.getByRole("button", { name: "Inventory", exact: true }).click(); await expect(page.getByRole("heading", { name: "Inventory", exact: true })).toBeVisible(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); await page.screenshot({ path: "opspilot/tests/artifacts/mobile.png", fullPage: true }); });
+test("document upload and protected download work", async ({ page }) => { await page.getByRole("button", { name: "Documents", exact: true }).click(); await page.getByRole("button", { name: "Upload document", exact: true }).click(); const dialog = page.getByRole("dialog"); await dialog.locator('input[type="file"]').setInputFiles({ name: "browser-notes.txt", mimeType: "text/plain", buffer: Buffer.from("A little more organized.") }); await dialog.getByRole("button", { name: "Upload document", exact: true }).click(); await expect(dialog).not.toBeVisible(); await expect(page.locator(".records-table")).toContainText("browser-notes.txt"); const download = page.waitForEvent("download"); await page.getByRole("link", { name: "Download browser-notes.txt", exact: true }).click(); expect((await download).suggestedFilename()).toBe("browser-notes.txt"); });
+test("CRM pipeline supports moving opportunities between stages", async ({ page }) => { await page.getByRole("button", { name: "CRM & Customers", exact: true }).click(); await page.getByRole("button", { name: "Sales pipeline", exact: true }).click(); const source = page.locator(".kanban-column").filter({ has: page.getByRole("heading", { name: "New", exact: true }) }); const target = page.locator(".kanban-column").filter({ has: page.getByRole("heading", { name: "Qualified", exact: true }) }); const card = source.locator(".kanban-card").filter({ hasText: "Orbit Digital" }); await card.dragTo(target); await expect(target).toContainText("Orbit Digital"); await page.reload(); await page.getByRole("button", { name: "Sales pipeline", exact: true }).click(); await expect(page.locator(".kanban-column").filter({ has: page.getByRole("heading", { name: "Qualified", exact: true }) })).toContainText("Orbit Digital"); });
+
+test("registration, logout, and login work through the interface", async ({ page }) => {
+  const email = `browser-auth-${Date.now()}@example.com`; const password = "Browser-test-password-2026!";
+  await page.goto("/login?mode=register");
+  await page.getByLabel("Your full name").fill("Jordan Rowan");
+  await page.getByLabel("Workspace name").fill("Browser Fresh Workspace");
+  await page.getByLabel("Email address").fill(email);
+  await page.locator('input[name="password"]').fill(password);
+  const registered = page.waitForResponse(r => r.url().includes("/api/session/register") && r.status() === 201);
+  await page.getByRole("button", { name: "Create your workspace", exact: true }).click(); await registered;
+  const snapshot = await (await page.request.get("/api/workspace")).json();
+  fixtures.get(page)!.push({ workspaceId: snapshot.workspace.id, userId: snapshot.user.id });
+  await expect(page.getByRole("heading", { name: /Good morning, Jordan/ })).toBeVisible();
+  await expect(page.locator(".metric-grid")).toContainText("$0.00");
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
+  expect((await page.request.get("/api/workspace")).status()).toBe(401);
+  await page.getByLabel("Email address").fill(email);
+  await page.locator('input[name="password"]').fill(password);
+  await page.getByRole("button", { name: "Sign in to your workspace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Good morning, Jordan/ })).toBeVisible();
+});
+test("keyboard search treats untrusted record text as text, not markup", async ({ page }) => {
+  const unsafeName = '<img src=x onerror="alert(1)">'; const dialogs: string[] = [];
+  page.on("dialog", async dialog => { dialogs.push(dialog.message()); await dialog.dismiss(); });
+  await page.getByRole("button", { name: "New customer", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Customer name").fill(unsafeName);
+  await page.getByRole("dialog").getByRole("button", { name: "Create customer", exact: true }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page.keyboard.press("Control+k");
+  await page.getByRole("textbox", { name: "Search workspace" }).fill(unsafeName);
+  await expect(page.locator(".search-result strong")).toHaveText(unsafeName);
+  await expect(page.locator(".search-result img")).toHaveCount(0);
+  expect(dialogs).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+});
