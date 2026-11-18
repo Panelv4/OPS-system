@@ -12,11 +12,16 @@ export class ConfigError extends Error {}
 export type EnvBag = Record<string, string | undefined>;
 
 export type BillingProviderId = "test" | "stripe";
+export type MailTransportId = "console" | "resend";
 
 export type OpsConfig = {
   databaseUrl: string;
   billingProvider: BillingProviderId | "";
   billingWebhookSecret: string;
+  mailTransport: MailTransportId;
+  mailFrom: string;
+  resendApiKey: string;
+  appUrl: string;
   cookieSecure: boolean;
   trustProxy: boolean;
   aiEnabled: boolean;
@@ -75,6 +80,24 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
     throw new ConfigError("BILLING_WEBHOOK_SECRET (16+ characters) is required when BILLING_PROVIDER is set.");
   }
 
+  const rawTransport = (env.MAIL_TRANSPORT ?? "console").trim().toLowerCase();
+  if (rawTransport !== "console" && rawTransport !== "resend") {
+    throw new ConfigError('MAIL_TRANSPORT must be "console" or "resend".');
+  }
+  const mailTransport = rawTransport as MailTransportId;
+  const resendApiKey = (env.RESEND_API_KEY ?? "").trim();
+  const mailFrom = (env.MAIL_FROM ?? "OpsPilot <no-reply@localhost>").trim();
+  if (mailTransport === "resend") {
+    // Fail closed: a half-configured mailer silently drops verification and
+    // password-reset links, which is indistinguishable from churn.
+    if (!resendApiKey) throw new ConfigError("MAIL_TRANSPORT=resend requires RESEND_API_KEY.");
+    if (!/^[^@<>]+@[^@<>]+\.[^@<>]+$/.test(mailFrom.replace(/^.*<|>.*$/g, ""))) {
+      throw new ConfigError("MAIL_FROM must be a valid address (e.g. \"OpsPilot <no-reply@yourdomain.com>\").");
+    }
+  }
+  const appUrl = (env.APP_URL ?? "http://localhost:3000").trim().replace(/\/$/, "");
+  if (!/^https?:\/\/[^\s]+$/.test(appUrl)) throw new ConfigError("APP_URL must be an absolute http(s) URL.");
+
   const openaiBaseUrl = (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
   if (aiEnabled && !/^https:\/\//.test(openaiBaseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(openaiBaseUrl)) {
     throw new ConfigError("OPENAI_BASE_URL must use https:// (plain http is only allowed for localhost).");
@@ -84,6 +107,10 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
     databaseUrl,
     billingProvider,
     billingWebhookSecret,
+    mailTransport,
+    mailFrom,
+    resendApiKey,
+    appUrl,
     cookieSecure: cookieSecureFlag ?? isProduction,
     trustProxy,
     aiEnabled,
@@ -112,6 +139,9 @@ export function validateConfig(env: EnvBag = process.env): OpsConfig {
 
   if (resolved.isProduction && !resolved.cookieSecure) {
     warnings.push("COOKIE_SECURE=false in production: session cookies will be sent over plain HTTP. Terminate TLS and enable secure cookies before launch.");
+  }
+  if (resolved.mailTransport === "console" && resolved.isProduction) {
+    warnings.push("MAIL_TRANSPORT=console in production: verification, reset and invitation emails are only written to the log. Set MAIL_TRANSPORT=resend (or another adapter) before inviting real users.");
   }
   if (!resolved.billingProvider) {
     warnings.push("Billing is disabled (BILLING_PROVIDER unset): workspaces resolve to the free plan and checkout returns 503. Expected for self-hosted use.");

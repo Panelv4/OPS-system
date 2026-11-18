@@ -27,9 +27,9 @@ this environment · **RED** = missing or unsafe for launch.
 | Backups | AMBER | `opspilot/scripts/backup.sh` (pg_dump custom format) exists; **no restore was ever executed** |
 | Restore drill | **RED** | Never performed. Do not go live without one |
 | Observability | **RED** | No structured logs, no error tracking, no metrics, no alerting |
-| Email (verify/reset/invite) | **RED** | No mail transport exists |
+| Email (verify/reset/invite) | AMBER | Flows implemented and tested; delivery runs on the console transport until a domain is verified (T-201) |
 | Billing / payments | **RED** | No gateway, no plans, no entitlements |
-| Member management | **RED** | Roles exist; no invite/role-change path |
+| Member management | AMBER | Invite + accept + seats work via API and links; no management UI yet (T-211) |
 | Background jobs | **RED** | No scheduler/queue |
 | Object storage | RED | Documents are base64 in Postgres |
 | Data export / deletion (GDPR) | RED | No account export/deletion |
@@ -86,7 +86,7 @@ item that can scale faster than revenue.
 ## 3. Pre-launch checklist (must all be GREEN)
 
 ### Engineering
-- [ ] T-201…T-204 email verification, reset, invitations (with a real provider in staging)
+- [ ] T-201…T-204 verified with a real provider and a verified domain (code is done, delivery is not)
 - [ ] T-101…T-108 billing with webhook idempotency and entitlement enforcement
 - [ ] T-207 member invite/role change UI
 - [ ] T-401…T-405 job runner + reminder/dunning jobs

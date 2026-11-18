@@ -22,7 +22,7 @@ export async function createSession(userId: string, workspaceId: string) {
 export async function getSession() {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
-  const [row] = await db.select({ user: { id: users.id, name: users.name, email: users.email }, workspace: workspaces, role: memberships.role })
+  const [row] = await db.select({ user: { id: users.id, name: users.name, email: users.email, emailVerifiedAt: users.emailVerifiedAt }, workspace: workspaces, role: memberships.role })
     .from(sessions).innerJoin(users, eq(sessions.userId, users.id)).innerJoin(workspaces, eq(sessions.workspaceId, workspaces.id))
     .innerJoin(memberships, and(eq(memberships.userId, sessions.userId), eq(memberships.workspaceId, sessions.workspaceId)))
     .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date()))).limit(1);

@@ -39,6 +39,10 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-false}
       BILLING_PROVIDER: ${BILLING_PROVIDER:-}
       BILLING_WEBHOOK_SECRET: ${BILLING_WEBHOOK_SECRET:-}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-console}
+      MAIL_FROM: ${MAIL_FROM:-OpsPilot <no-reply@localhost>}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      APP_URL: ${APP_URL:-http://localhost:3000}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}

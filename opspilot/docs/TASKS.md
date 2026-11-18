@@ -46,16 +46,19 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 
 | ID | Task | Priority | Status | Notes |
 | --- | --- | --- | --- | --- |
-| T-201 | Mailer interface + provider (Postmark/Resend/SES) + dev console transport | P0 | open | No SMTP dependency enters tests; delivery log table |
-| T-202 | Email verification on registration | P1 | open | Gate invitations/billing until verified |
-| T-203 | Password reset (single-use token, 30 min, revoke sessions on use) | P1 | open | Closes F-10 |
-| T-204 | Workspace invitations + acceptance | P1 | open | Uses `op_memberships`; adds member management UI |
+| T-201 | Mailer interface + transport + console dev transport + delivery log | P0 | **done** | `mailer.ts`, `op_email_log`; console default, Resend adapter written but unverified without a domain |
+| T-202 | Email verification on registration + confirm link | P1 | **done** | `POST /api/session/verify`; `users.email_verified_at`; UI at `/login?mode=verify` |
+| T-203 | Password reset (single-use token, 30 min, revoke all sessions) | P1 | **done** | Closes F-10; `request-reset` is non-enumerating and rate limited 3/h |
+| T-204 | Workspace invitations + acceptance | P1 | **done** | `POST /api/members`, `/api/members/accept`, seat-enforced, role-bound |
 | T-205 | Session list + revoke-all + revoke-on-password-change | P2 | open | Needs `sessions.created_at`, user agent, last-seen |
 | T-206 | Nonce-based CSP, drop `unsafe-inline` | P2 | open | Verify in a real browser |
 | T-207 | Member management endpoints + UI (invite, role change, remove, audit) | P0 | open | RBAC exists but cannot be exercised |
 | T-208 | Breach-password check (HIBP k-anonymity) | P2 | open | Fail open on network error, log it |
 | T-209 | Revoke UPDATE/DELETE on `op_audit_events` for the app role | P2 | open | Deployment SQL, documented in runbook |
 | T-210 | Independent penetration test | P0 | needs approval | External cost/NDA; founder decision |
+| T-211 | Member management UI (invite form, roster, role change) | P2 | open | API exists (`/api/members`); Settings still has no team section |
+| T-212 | Require verified email before inviting or paying | P2 | open | `user.emailVerified` already exposed to the client |
+| T-213 | Consume Resend bounce/complaint webhooks; suppress hard bounces | P2 | open | Needs a live provider account |
 
 ## M3 — Storage, jobs, observability
 

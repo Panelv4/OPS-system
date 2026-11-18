@@ -59,6 +59,13 @@ Use a disposable test instance/database. API tests register isolated workspaces 
 
 `TEST_BASE_URL` defaults to `http://localhost:3000`. The tests' `DATABASE_URL` must point to the same database as the server. [Actual validation results](opspilot/docs/TEST_RESULTS.md) are recorded after execution, not assumed.
 
+## Email
+
+Verification, password recovery and invitations are implemented with single-use, hashed,
+purpose-bound tokens. Delivery defaults to the `console` transport (the message is logged and
+recorded in `op_email_log`); set `MAIL_TRANSPORT=resend` with a verified sending domain to deliver
+real mail. Open links land on `/login?mode=verify|reset|invite`. See [EMAIL.md](opspilot/docs/EMAIL.md).
+
 ## Billing
 
 Billing is opt-in and disabled by default: without `BILLING_PROVIDER`, every workspace resolves to

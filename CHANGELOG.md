@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0 — Email, verification, recovery and invitations
+
+### Added
+- Mailer with two transports: `console` (default, logs and records) and `resend` (HTTP API, no SDK),
+  plus an `op_email_log` delivery table and `MAIL_TRANSPORT` / `MAIL_FROM` / `RESEND_API_KEY` /
+  `APP_URL` configuration with fail-closed validation.
+- Single-use hashed action tokens (`op_email_tokens`): purpose-bound, 24h / 30min / 7d TTLs, atomic
+  consumption, rotation of outstanding tokens.
+- Email verification at registration and `POST /api/session/verify`; `users.email_verified_at` and
+  `user.emailVerified` in the workspace payload.
+- Self-service password reset (`request-reset`, `reset`) that never reveals whether an address has
+  an account and revokes every session on success.
+- Workspace invitations: `POST /api/members` (owner/admin, role-bound, seat-enforced),
+  `POST /api/members/accept`, `GET /api/members`, plus the three link screens on `/login`
+  (`mode=verify|reset|invite`) and a working recovery form replacing the old "not enabled" notice.
+- `opspilot/docs/EMAIL.md` and 12 email tests covering config, templates, token lifecycle and all
+  three flows end to end.
+
+### Notes
+- Delivery runs on the console transport: nothing is sent externally until a domain is verified
+  with Resend. The Resend adapter itself is unverified against the live API.
+- Seats are now enforced, which completes the last billing quota (T-107).
+
 ## 0.3.0 — Billing core (test mode)
 
 ### Added

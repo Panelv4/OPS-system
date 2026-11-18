@@ -19,7 +19,8 @@ it("generated migrations install all tables on a fresh database and can be rerun
     const result = await target.execute(sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'op_%'`);
     const tables = result.rows.map((row) => (row as { table_name: string }).table_name).sort();
     assert.deepEqual(tables, [
-      "op_ai_usage", "op_audit_events", "op_billing_events", "op_files", "op_memberships", "op_notifications",
+      "op_ai_usage", "op_audit_events", "op_billing_events", "op_email_log", "op_email_tokens", "op_files",
+      "op_memberships", "op_notifications",
       "op_payments", "op_rate_limits", "op_records", "op_sessions", "op_stock_movements", "op_subscriptions",
       "op_users", "op_workspaces",
     ], "every modelled table must exist after a fresh migration");

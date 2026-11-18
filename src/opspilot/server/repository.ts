@@ -18,7 +18,7 @@ export async function loadWorkspace(session: Session) {
   ]);
   const views = new Set(permissions.map(k => kindViews[k]));
   return { workspace: { id: session.workspace.id, name: session.workspace.name, isDemo: session.workspace.isDemo, settings: session.workspace.settings },
-    user: { id: session.user.id, name: session.user.name, email: session.user.email, role: session.role }, permissions,
+    user: { id: session.user.id, name: session.user.name, email: session.user.email, role: session.role, emailVerified: Boolean(session.user.emailVerifiedAt) }, permissions,
     records: items.map(({ workspaceId: _workspaceId, ...r }) => {
       if (r.kind !== "invoices") return r;
       const history = paymentRows.filter(p => p.recordId === r.id).map(p => ({ amountCents: p.amountCents, createdAt: p.createdAt }));
