@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.6.0 — Zero-cost email, GDPR controls, real pricing UI, market and legal drafts
+
+### Added
+- **Brevo transport** (`MAIL_TRANSPORT=brevo`): the zero-cost way to deliver real email
+  without owning a domain — Brevo verifies a single sender address with a code. Free plan
+  300/day with a "Sent with Brevo" footer. Adapter unit-tested against an injected fetch
+  (success, unverified sender, bad key, quota, network failure) with actionable error
+  hints; not yet exercised against the live API.
+- **GDPR controls**: `GET /api/account/export` (account, workspace, records, payments,
+  stock movements, documents as metadata, notifications, audit history, subscription,
+  deliveries) and `DELETE /api/account` (password + literal `DELETE`, refuses to erase a
+  workspace that still has teammates, cascades otherwise). Wired into
+  Settings → Account & security.
+- **Real plan UI**: `BillingPanel.tsx` drives the Settings plan tab and the pricing modal
+  from `GET /api/billing` — actual prices, seats, AI quota, storage and workflow usage
+  against limits, with an explicit "billing disabled" state. The stale ₹101/₹499/₹1,499
+  copy is gone.
+- **Team panel**: Settings → Team lists members with roles and verification state,
+  pending invitations with expiry, and an invite form for owners/administrators.
+- **Market research** (`opspilot/docs/MARKET_RESEARCH.md`): Productive, Scoro, Zoho Books,
+  Odoo and ERPNext pricing with citations and dates; where our $29/$59/$119 sits; a
+  primary (US/UK/CA/AU agencies, 3–20 seats) and secondary (India, free-plan) market with
+  the evidence, plus the gaps that disqualify us in a sales call.
+- **Zero-budget GTM** (`opspilot/docs/GTM.md`): 20 prospects, a 30-day sequence, honest
+  targets, and an explicit no-ads/no-automation rule.
+- **Legal drafts** (`opspilot/legal/`): privacy policy, terms, DPA and subprocessor list —
+  engineer-written, unreviewed, placeholders marked.
+
+### Changed
+- The Settings security tab no longer claims email verification, recovery and invitations
+  are "not enabled"; it points at the real behaviour and hosts the data controls.
+- `parseSender` and `brevoHint` are exported so the transport's error mapping is testable.
+
+### Notes
+- Nothing is delivered by email in this repository's default configuration; a Brevo (or
+  Resend) account is a founder action.
+- The legal documents are not published and must not be until counsel reviews them.
+
 ## 0.5.0 — Background jobs, readiness and structured logs
 
 ### Added

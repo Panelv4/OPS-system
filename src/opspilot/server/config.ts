@@ -12,7 +12,7 @@ export class ConfigError extends Error {}
 export type EnvBag = Record<string, string | undefined>;
 
 export type BillingProviderId = "test" | "stripe";
-export type MailTransportId = "console" | "resend";
+export type MailTransportId = "console" | "resend" | "brevo";
 
 export type OpsConfig = {
   databaseUrl: string;
@@ -21,6 +21,7 @@ export type OpsConfig = {
   mailTransport: MailTransportId;
   mailFrom: string;
   resendApiKey: string;
+  brevoApiKey: string;
   appUrl: string;
   jobsSecret: string;
   cookieSecure: boolean;
@@ -82,16 +83,18 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
   }
 
   const rawTransport = (env.MAIL_TRANSPORT ?? "console").trim().toLowerCase();
-  if (rawTransport !== "console" && rawTransport !== "resend") {
-    throw new ConfigError('MAIL_TRANSPORT must be "console" or "resend".');
+  if (rawTransport !== "console" && rawTransport !== "resend" && rawTransport !== "brevo") {
+    throw new ConfigError('MAIL_TRANSPORT must be "console", "brevo" or "resend".');
   }
   const mailTransport = rawTransport as MailTransportId;
   const resendApiKey = (env.RESEND_API_KEY ?? "").trim();
+  const brevoApiKey = (env.BREVO_API_KEY ?? "").trim();
   const mailFrom = (env.MAIL_FROM ?? "OpsPilot <no-reply@localhost>").trim();
-  if (mailTransport === "resend") {
+  if (mailTransport === "resend" || mailTransport === "brevo") {
     // Fail closed: a half-configured mailer silently drops verification and
     // password-reset links, which is indistinguishable from churn.
-    if (!resendApiKey) throw new ConfigError("MAIL_TRANSPORT=resend requires RESEND_API_KEY.");
+    if (mailTransport === "resend" && !resendApiKey) throw new ConfigError("MAIL_TRANSPORT=resend requires RESEND_API_KEY.");
+    if (mailTransport === "brevo" && !brevoApiKey) throw new ConfigError("MAIL_TRANSPORT=brevo requires BREVO_API_KEY.");
     if (!/^[^@<>]+@[^@<>]+\.[^@<>]+$/.test(mailFrom.replace(/^.*<|>.*$/g, ""))) {
       throw new ConfigError("MAIL_FROM must be a valid address (e.g. \"OpsPilot <no-reply@yourdomain.com>\").");
     }
@@ -117,6 +120,7 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
     mailTransport,
     mailFrom,
     resendApiKey,
+    brevoApiKey,
     appUrl,
     jobsSecret,
     cookieSecure: cookieSecureFlag ?? isProduction,

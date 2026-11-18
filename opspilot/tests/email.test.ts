@@ -7,7 +7,14 @@ import { db, pool } from "../../src/db";
 import { emailLog, emailTokens, memberships, users, workspaces } from "../../src/db/schema";
 import { resolveConfig, ConfigError, type EnvBag } from "../../src/opspilot/server/config";
 import { consumeToken, issueToken, isValidTokenFormat, TOKEN_TTL_MS } from "../../src/opspilot/server/tokens";
-import { invitationEmail, passwordResetEmail, verificationEmail } from "../../src/opspilot/server/mailer";
+import {
+  brevoHint,
+  invitationEmail,
+  parseSender,
+  passwordResetEmail,
+  sendWithBrevo,
+  verificationEmail,
+} from "../../src/opspilot/server/mailer";
 
 const base = process.env.TEST_BASE_URL?.replace(/\/$/, "");
 const password = "A-good-test-password-2026!";
@@ -62,6 +69,79 @@ describe("mail configuration and templates", () => {
     const invite = invitationEmail("https://x/login?mode=invite&token=abc", "Acme Studio", "Priya", "accountant");
     assert.match(invite.subject, /Priya invited you to Acme Studio/);
     assert.match(invite.text, /accountant/);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Brevo: the zero-cost, no-domain transport
+ * ------------------------------------------------------------------ */
+
+describe("Brevo transport", () => {
+  const env = (overrides: EnvBag = {}): EnvBag => ({ DATABASE_URL: "postgresql://u:p@127.0.0.1:5432/db", ...overrides });
+  const message = {
+    to: "customer@example.com",
+    subject: "Confirm your email",
+    text: "Confirm: https://app.example.com/login?mode=verify&token=abc",
+    template: "verify_email" as const,
+  };
+
+  it("needs a key and a real From address, and refuses to start half-configured", () => {
+    assert.throws(() => resolveConfig(env({ MAIL_TRANSPORT: "brevo" })), ConfigError);
+    assert.throws(() => resolveConfig(env({ MAIL_TRANSPORT: "brevo", BREVO_API_KEY: "xkeysib-1", MAIL_FROM: "someone" })), ConfigError);
+    const ok = resolveConfig(env({ MAIL_TRANSPORT: "brevo", BREVO_API_KEY: "xkeysib-1", MAIL_FROM: "Alex <alex@gmail.com>" }));
+    assert.equal(ok.mailTransport, "brevo");
+    assert.equal(ok.brevoApiKey, "xkeysib-1");
+  });
+
+  it("parses both sender formats into a provider sender object", () => {
+    assert.deepEqual(parseSender("OpsPilot <no-reply@example.com>"), { name: "OpsPilot", email: "no-reply@example.com" });
+    assert.deepEqual(parseSender("alex@gmail.com"), { email: "alex@gmail.com" });
+  });
+
+  it("posts a plain-text message and records the provider message id", async () => {
+    let seen: { url: string; init: RequestInit } | undefined;
+    const fake = (async (url: string, init: RequestInit) => {
+      seen = { url, init };
+      return new Response(JSON.stringify({ messageId: "brevo-123" }), { status: 201 });
+    }) as unknown as typeof fetch;
+
+    const result = await sendWithBrevo(message, "xkeysib-1", "OpsPilot <alex@gmail.com>", fake);
+    assert.deepEqual(result, { status: "sent", providerId: "brevo-123" });
+    assert.equal(seen?.url, "https://api.brevo.com/v3/smtp/email");
+    const body = JSON.parse(String(seen?.init.body));
+    assert.deepEqual(body.sender, { name: "OpsPilot", email: "alex@gmail.com" });
+    assert.deepEqual(body.to, [{ email: "customer@example.com" }]);
+    assert.equal(body.textContent, message.text);
+    assert.equal(body.subject, "Confirm your email");
+    assert.equal((seen?.init.headers as Record<string, string>)["api-key"], "xkeysib-1");
+  });
+
+  it("turns provider rejections into the action that fixes them", async () => {
+    const reject = (status: number, body = "{\"message\":\"nope\"}") =>
+      (async () => new Response(body, { status })) as unknown as typeof fetch;
+
+    const unauthorised = await sendWithBrevo(message, "bad", "alex@gmail.com", reject(401));
+    assert.equal(unauthorised.status, "failed");
+    assert.match(unauthorised.error ?? "", /Check BREVO_API_KEY/);
+
+    const unverifiedSender = await sendWithBrevo(message, "key", "alex@gmail.com", reject(400, "{\"message\":\"Sender not allowed\"}"));
+    assert.equal(unverifiedSender.status, "failed");
+    assert.match(unverifiedSender.error ?? "", /Verify the MAIL_FROM address/);
+
+    assert.match(brevoHint(402), /300\/day/);
+    assert.match(brevoHint(429), /rate limit/i);
+    assert.equal(brevoHint(418), "");
+  });
+
+  it("never throws when the network fails — a provider outage must not break signup", async () => {
+    const boom = (async () => { throw new Error("connect ECONNREFUSED"); }) as unknown as typeof fetch;
+    const result = await sendWithBrevo(message, "key", "alex@gmail.com", boom);
+    assert.equal(result.status, "failed");
+    assert.match(result.error ?? "", /ECONNREFUSED/);
+
+    const garbage = (async () => new Response("not json", { status: 201 })) as unknown as typeof fetch;
+    const sentWithoutId = await sendWithBrevo(message, "key", "alex@gmail.com", garbage);
+    assert.equal(sentWithoutId.status, "sent", "a 2xx without a parseable body is still a delivery");
   });
 });
 
