@@ -94,7 +94,7 @@ item that can scale faster than revenue.
 - [x] T-304 structured logs · [ ] error tracking hitting a real dashboard
 - [ ] Backup **restore** drill, documented with timings (T-303)
 - [ ] `docker build` + `docker compose up` executed by a human or CI on a Docker-capable runner
-- [ ] Load test: 50 concurrent users on the API suite endpoints; watch DB connections (T-305)
+- [x] Load test: 50 concurrent sessions, 0 errors, p50 141–201 ms on a single-core sandbox (T-305) — re-run against the real deployment before quoting a number
 
 ### Security
 - [ ] Independent penetration test (T-210) — at minimum a second pair of eyes on auth + tenancy

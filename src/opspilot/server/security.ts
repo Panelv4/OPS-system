@@ -60,13 +60,17 @@ export async function pruneExpiredData() {
 
 export { clientIp };
 
-export function assertOrigin(request: Request, multipart = false) {
+export function assertOrigin(request: Request, multipart = false, requireJson = true) {
   const origin = request.headers.get("origin"); const host = request.headers.get("host");
   let source: URL;
   try { source = new URL(origin ?? ""); } catch { throw new ApiError(403, "Cross-origin request rejected."); }
   if (!["http:", "https:"].includes(source.protocol) || (source.host !== new URL(request.url).host && source.host !== host)) throw new ApiError(403, "Cross-origin request rejected.");
-  const contentType = request.headers.get("content-type") ?? "";
-  if (multipart ? !contentType.includes("multipart/form-data") : !contentType.includes("application/json")) throw new ApiError(415, multipart ? "Send a multipart file upload." : "Send application/json.");
+  if (multipart) {
+    if (!(request.headers.get("content-type") ?? "").includes("multipart/form-data")) throw new ApiError(415, "Send a multipart file upload.");
+  } else if (requireJson) {
+    // Body-less verbs (DELETE without a payload) legitimately send no content type.
+    if (!(request.headers.get("content-type") ?? "").includes("application/json")) throw new ApiError(415, "Send application/json.");
+  }
 }
 export async function rateLimit(key: string, max = 30, windowMs = 15 * 60 * 1000) {
   const now = new Date(); const expiresAt = new Date(now.getTime() + windowMs);

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Check, Loader2, Mail, UserPlus, Users } from "lucide-react";
+import { Check, Loader2, Mail, Trash2, UserPlus, Users } from "lucide-react";
 import { api } from "../lib/client";
 import { Avatar, Badge, Button } from "./UI";
 import { Field } from "./RecordForms";
@@ -24,6 +24,7 @@ export function TeamPanel({ role, toast }: { role: string; toast: (message: stri
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("employee");
   const [busy, setBusy] = useState(false);
+  const [rowBusy, setRowBusy] = useState("");
 
   const canInvite = role === "owner" || role === "administrator";
 
@@ -61,6 +62,29 @@ export function TeamPanel({ role, toast }: { role: string; toast: (message: stri
     } finally { setBusy(false); }
   }
 
+  async function changeRole(userId: string, nextRole: string) {
+    setRowBusy(userId); setError(""); setNotice("");
+    try {
+      await api(`/api/members/${userId}`, "PATCH", { role: nextRole });
+      setNotice("Role updated. Their existing sessions were signed out so the change applies immediately.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to change that role.");
+    } finally { setRowBusy(""); }
+  }
+
+  async function remove(userId: string, name: string) {
+    if (!window.confirm(`Remove ${name} from this workspace? Their open sessions will be signed out.`)) return;
+    setRowBusy(userId); setError(""); setNotice("");
+    try {
+      await api(`/api/members/${userId}`, "DELETE");
+      setNotice(`${name} no longer has access to this workspace.`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to remove that member.");
+    } finally { setRowBusy(""); }
+  }
+
   if (error && !roster) return <div className="form-error" role="alert">{error}</div>;
   if (!roster) return <div className="settings-notice" role="status"><Loader2 size={18}/><p>Loading your team…</p></div>;
 
@@ -79,7 +103,23 @@ export function TeamPanel({ role, toast }: { role: string; toast: (message: stri
               <strong>{member.name}{member.id === roster.members[0]?.id ? "" : ""}</strong>
               <p>{member.email}{member.emailVerified ? "" : " · email not confirmed"}</p>
             </span>
-            <Badge tone={member.role === "owner" ? "green" : undefined}>{member.role.replaceAll("_", " ")}</Badge>
+            {canInvite && member.role !== "owner" ? (
+              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select
+                  aria-label={`Role for ${member.name}`}
+                  value={member.role}
+                  disabled={rowBusy === member.id}
+                  onChange={(event) => void changeRole(member.id, event.target.value)}
+                >
+                  {ROLES.map((option) => <option key={option} value={option}>{option.replaceAll("_", " ")}</option>)}
+                </select>
+                <Button variant="danger" disabled={rowBusy === member.id} onClick={() => void remove(member.id, member.name)} aria-label={`Remove ${member.name}`}>
+                  <Trash2 size={14}/>
+                </Button>
+              </span>
+            ) : (
+              <Badge tone={member.role === "owner" ? "green" : undefined}>{member.role.replaceAll("_", " ")}</Badge>
+            )}
           </div>
         ))}
       </div>

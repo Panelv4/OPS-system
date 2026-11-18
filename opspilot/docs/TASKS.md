@@ -52,11 +52,11 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 | T-204 | Workspace invitations + acceptance | P1 | **done** | `POST /api/members`, `/api/members/accept`, seat-enforced, role-bound |
 | T-205 | Session list + revoke-all + revoke-on-password-change | P2 | open | Needs `sessions.created_at`, user agent, last-seen |
 | T-206 | Nonce-based CSP, drop `unsafe-inline` | P2 | open | Verify in a real browser |
-| T-207 | Member management endpoints + UI | P0 | **partial** | Endpoints done (M2); `TeamPanel.tsx` now invites and lists members/pending invitations. Role change, removal and audit export still open |
+| T-207 | Member management endpoints + UI | P0 | **done** | Invite, roster, role change (`PATCH /api/members/:id`) and removal (`DELETE`) with audit events and session revocation; `TeamPanel.tsx` exposes all of it. Audit *export* lives in the account export |
 | T-208 | Breach-password check (HIBP k-anonymity) | P2 | open | Fail open on network error, log it |
 | T-209 | Revoke UPDATE/DELETE on `op_audit_events` for the app role | P2 | open | Deployment SQL, documented in runbook |
 | T-210 | Independent penetration test | P0 | needs approval | External cost/NDA; founder decision |
-| T-211 | Member management UI (invite form, roster, role change) | P2 | **partial** | Settings → Team: roster with roles and verification state, pending invitations, invite form. Role change/removal not wired |
+| T-211 | Member management UI (invite form, roster, role change) | P2 | **done** | Settings → Team: roster, pending invitations, invite form, inline role select and remove button for owners/admins |
 | T-212 | Require verified email before inviting or paying | P2 | open | `user.emailVerified` already exposed to the client |
 | T-213 | Consume Resend bounce/complaint webhooks; suppress hard bounces | P2 | open | Needs a live provider account |
 
@@ -68,7 +68,7 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 | T-302 | Upload virus scanning hook | P3 | open | After object storage |
 | T-303 | `/api/health/ready` (migration state, version) + documented restore drill | P0 | **partial** | Probe done and tested; the drill is documented in `JOBS.md` but **not executed** (no `pg_dump` in this environment). Remains a launch blocker |
 | T-304 | Structured JSON logs with request id + error tracking | P1 | **done (logs) / open (tracking)** | `log.ts`, middleware request ids, redaction, `LOG_LEVEL`; no Sentry-style error tracker or metrics yet |
-| T-305 | Load test (50 concurrent) + connection-pool sizing | P2 | open | Record p95 and DB connection ceiling |
+| T-305 | Load test (50 concurrent) + connection-pool sizing | P2 | **done (baseline)** | `opspilot/scripts/load-test.mjs`, 0 errors at 350–550 reads, p50 141–201 ms on a single-core sandbox; `PGPOOL_MAX` added. Numbers bound the shape, not production capacity |
 | T-306 | Document delete + versions + per-document ACL | P2 | open | Needed before agencies upload client contracts |
 
 ## M4 — Automations that agencies actually pay for

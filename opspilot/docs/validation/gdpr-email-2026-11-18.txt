@@ -58,3 +58,34 @@ tested endpoints", not "visually confirmed".
 
 The stale copy is gone: Settings no longer claims verification/recovery/invitations are
 disabled, and the ₹101/₹499/₹1,499 modal is replaced by the server's catalogue.
+
+## Member management (T-207/T-211)
+
+```
+PATCH /api/members/:id {role:"accountant"}   -> 200; roster updated; member's session revoked (401)
+PATCH owner's own row                        -> 409 (the owner role is not editable here)
+DELETE owner's own row                       -> 409 ("use account deletion")
+PATCH {role:"owner"} / {role:"emperor"}      -> 400
+PATCH/DELETE unknown member                  -> 404
+accountant PATCH/DELETE                      -> 403; anonymous -> 401
+DELETE /api/members/:id                      -> 200; member's session 401, membership row gone,
+                                                audit event member.removed written
+```
+4/4 tests. A body-less DELETE used to be rejected with 415 because the origin guard demanded
+`application/json`; `assertOrigin` now takes `requireJson` so verbs without a payload work.
+
+## Load test (T-305)
+
+`node opspilot/scripts/load-test.mjs` — real HTTP, 50 concurrent sessions, production build,
+single-core sandbox, embedded Postgres 18 on the same machine (so both share one CPU):
+
+| Run | Pool | Read requests | Errors | p50 | p95 | p99 | Reads/s |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 10 (default) | 350 | 0 | 201 ms | 404 ms | 446 ms | 228 |
+| 2 | 25 | 550 | 0 | 141 ms | 1035 ms | 1185 ms | 199 |
+
+Zero failed requests in both; p95 got *worse* with a larger pool on one CPU, which is the
+honest reading: this measures a single-core box, not capacity. It does show the shape is
+sane (hundreds of rps, no errors) and that `PGPOOL_MAX` is the knob to tune against the
+database's `max_connections`. Signup dominates: 50 registrations take ~2.4 s because scrypt
+hashing is deliberately expensive.

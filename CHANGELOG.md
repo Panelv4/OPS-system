@@ -28,6 +28,13 @@
 - **Legal drafts** (`opspilot/legal/`): privacy policy, terms, DPA and subprocessor list —
   engineer-written, unreviewed, placeholders marked.
 
+- **Member management completed**: `PATCH /api/members/:id` (role change) and
+  `DELETE /api/members/:id` (removal) with audit events and immediate session revocation;
+  the owner role is immutable and a workspace always keeps an owner. Settings → Team gained
+  an inline role select and a remove button.
+- **Load-test script and pool sizing**: `opspilot/scripts/load-test.mjs` (no dependencies)
+  and `PGPOOL_MAX`, with the measured numbers recorded in the validation log.
+
 ### Changed
 - The Settings security tab no longer claims email verification, recovery and invitations
   are "not enabled"; it points at the real behaviour and hosts the data controls.
