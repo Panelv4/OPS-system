@@ -30,9 +30,13 @@ have no implementation at all.
 | Capability | Status | Notes |
 | --- | --- | --- |
 | Registration / login / logout | Done | scrypt, opaque tokens, generic errors |
-| Email verification | **Absent** | T-201 |
-| Password reset | **Absent** | T-202 |
-| Member invitations & role management | **Absent** | `op_memberships.role` only written at seed time. T-207 |
+| Email verification | Done | Registered on signup, single-use 24h link, `/login?mode=verify` (T-202) |
+| Password reset | Done | 30-min single-use link, revokes all sessions, non-enumerating (T-203) |
+| Member invitations & role management | Done (API) | Invite + accept + seat enforcement; roster via `GET /api/members`. No UI yet (T-211) |
+| Background jobs | Done (infra) | Postgres queue with leases, retries, dead letters, cron tick; housekeeping + invoice reminders only |
+| Readiness probe | Done | `/api/health/ready` checks DB, migrations, queue, version |
+| Structured logs | Done | JSON lines, request ids, secret redaction (`JOBS.md`) |
+| Email delivery | Done (console) | Resend adapter written, no domain → nothing leaves the machine. T-201 |
 | Session management UI | Absent | T-205 |
 | Rate limiting | Done (fixed) | DB-backed; per-address only with `TRUST_PROXY=true` |
 | Audit trail | Done | Append-only by construction; DB-level immutability not enforced (T-209) |

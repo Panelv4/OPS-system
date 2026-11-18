@@ -1,0 +1,59 @@
+# Email / verification / recovery / invitation verification log
+
+Date: 2026-11-18 · Node 22.22.3 · Next.js 16.4.6 · PostgreSQL 18.6 (embedded, 55432)
+Server env: MAIL_TRANSPORT=console, APP_URL=http://localhost:3000,
+BILLING_PROVIDER=test, BILLING_WEBHOOK_SECRET=test-webhook-secret-0123456789
+
+## Test suites
+
+```
+npx tsx --test opspilot/tests/email.test.ts                        12/12 pass
+npx tsx --test opspilot/tests/api.test.ts                          21/21 pass
+npx tsx --test opspilot/tests/billing.test.ts                      13/13 pass
+npx tsx --test domain + migrations + hardening                     34/34 pass
+npm run lint / npx tsc --noEmit / npm run build                    pass (18 routes incl. /api/members*)
+```
+
+## Console transport output (real log excerpt)
+
+```
+to:      demo-mail-…@example.com
+subject: Confirm your OpsPilot email address
+Welcome to OpsPilot. Confirm this email address to finish setting up "Mail Demo …".
+Confirm your email: http://localhost:3000/login?mode=verify&token=4af7fa…
+This link expires in 24 hours and can be used once.
+
+to:      demo-mail-…@example.com
+subject: Reset your OpsPilot password
+Hi Demo,
+Reset your password: http://localhost:3000/login?mode=reset&token=cba472…
+This link expires in 30 minutes and can be used once. Choosing a new password signs you out
+of every other session.
+```
+
+## Behaviour probes
+
+```
+register (new workspace)                 -> 201, session cookie set, verification email logged
+request-reset (known address)            -> 200 {"ok":true,"notice":"If that address has an account, a reset link is on its way."}
+request-reset (unknown address)          -> 200 (identical body)   <- no account enumeration
+reset with weak password                 -> 400 "Enter a new password of 10–128 characters."
+GET /login?mode=reset&token=<64 hex>     -> 200, renders "Choose a new password."
+```
+
+## Covered by the test suite (not just manual)
+
+- verification link works once, then 400; `email_verified_at` set
+- registration writes exactly one `verify_email` row with status `sent`
+- reset revokes existing sessions (old cookie -> 401) and the old password stops working
+- invitation: 201 + `workspace_invite` logged; third seat on the free plan -> 402;
+  unauthenticated invite -> 401; accept sets role permissions to
+  `["customers","invoices","expenses","vendors","documents"]` for `accountant`;
+  replayed invitation -> 400; deleted workspace -> 400
+- token lifecycle: single use, wrong purpose rejected, expired rejected, rotation retires the old one
+
+## Not verified here
+
+- No real email was delivered: MAIL_TRANSPORT=console and no domain exists. The Resend adapter is
+  written but unexercised against the live API.
+- No bounce/complaint handling yet (T-213).

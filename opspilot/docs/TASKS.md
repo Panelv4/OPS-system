@@ -46,16 +46,19 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 
 | ID | Task | Priority | Status | Notes |
 | --- | --- | --- | --- | --- |
-| T-201 | Mailer interface + provider (Postmark/Resend/SES) + dev console transport | P0 | open | No SMTP dependency enters tests; delivery log table |
-| T-202 | Email verification on registration | P1 | open | Gate invitations/billing until verified |
-| T-203 | Password reset (single-use token, 30 min, revoke sessions on use) | P1 | open | Closes F-10 |
-| T-204 | Workspace invitations + acceptance | P1 | open | Uses `op_memberships`; adds member management UI |
+| T-201 | Mailer interface + transport + console dev transport + delivery log | P0 | **done** | `mailer.ts`, `op_email_log`; console default, Resend adapter written but unverified without a domain |
+| T-202 | Email verification on registration + confirm link | P1 | **done** | `POST /api/session/verify`; `users.email_verified_at`; UI at `/login?mode=verify` |
+| T-203 | Password reset (single-use token, 30 min, revoke all sessions) | P1 | **done** | Closes F-10; `request-reset` is non-enumerating and rate limited 3/h |
+| T-204 | Workspace invitations + acceptance | P1 | **done** | `POST /api/members`, `/api/members/accept`, seat-enforced, role-bound |
 | T-205 | Session list + revoke-all + revoke-on-password-change | P2 | open | Needs `sessions.created_at`, user agent, last-seen |
 | T-206 | Nonce-based CSP, drop `unsafe-inline` | P2 | open | Verify in a real browser |
 | T-207 | Member management endpoints + UI (invite, role change, remove, audit) | P0 | open | RBAC exists but cannot be exercised |
 | T-208 | Breach-password check (HIBP k-anonymity) | P2 | open | Fail open on network error, log it |
 | T-209 | Revoke UPDATE/DELETE on `op_audit_events` for the app role | P2 | open | Deployment SQL, documented in runbook |
 | T-210 | Independent penetration test | P0 | needs approval | External cost/NDA; founder decision |
+| T-211 | Member management UI (invite form, roster, role change) | P2 | open | API exists (`/api/members`); Settings still has no team section |
+| T-212 | Require verified email before inviting or paying | P2 | open | `user.emailVerified` already exposed to the client |
+| T-213 | Consume Resend bounce/complaint webhooks; suppress hard bounces | P2 | open | Needs a live provider account |
 
 ## M3 — Storage, jobs, observability
 
@@ -63,8 +66,8 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 | --- | --- | --- | --- | --- |
 | T-301 | Storage abstraction: `PostgresFiles` (current) + `S3Files`; presigned download | P1 | open | Keep DB adapter for self-host; migrate lazily |
 | T-302 | Upload virus scanning hook | P3 | open | After object storage |
-| T-303 | `/api/health/ready` (migration state, version) + documented restore drill | P0 | open | Drill must be executed, not described |
-| T-304 | Structured JSON logs with request id + error tracking | P1 | open | One `log()` helper, no new console calls |
+| T-303 | `/api/health/ready` (migration state, version) + documented restore drill | P0 | **partial** | Probe done and tested; the drill is documented in `JOBS.md` but **not executed** (no `pg_dump` in this environment). Remains a launch blocker |
+| T-304 | Structured JSON logs with request id + error tracking | P1 | **done (logs) / open (tracking)** | `log.ts`, middleware request ids, redaction, `LOG_LEVEL`; no Sentry-style error tracker or metrics yet |
 | T-305 | Load test (50 concurrent) + connection-pool sizing | P2 | open | Record p95 and DB connection ceiling |
 | T-306 | Document delete + versions + per-document ACL | P2 | open | Needed before agencies upload client contracts |
 
@@ -72,11 +75,11 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 
 | ID | Task | Priority | Status | Notes |
 | --- | --- | --- | --- | --- |
-| T-401 | `jobs` table + `SKIP LOCKED` claim + `/api/jobs/tick` (cron) | P1 | open | No worker host required |
-| T-402 | Retry with exponential backoff, attempt cap, dead-letter status | P1 | open | Visible in an admin view |
-| T-403 | Scheduled/delayed actions (invoice reminders, task due notices) | P1 | open | First real automation customers ask for |
+| T-401 | `jobs` table + `SKIP LOCKED` claim + `/api/jobs/tick` (cron) | P1 | **done** | `op_jobs`/`op_job_runs`; lease reclaim; `JOBS_TICK_SECRET` fail-closed; 28 tests (`JOBS.md`) |
+| T-402 | Retry with exponential backoff, attempt cap, dead-letter status | P1 | **done** | 30s→1h backoff, attempt cap, `dead` terminal state, per-attempt history |
+| T-403 | Scheduled/delayed actions (invoice reminders, task due notices) | P1 | **partial** | In-app invoice reminders shipped; reminder **emails**, task due notices and dunning still open |
 | T-404 | Approval gates for consequential actions | P2 | open | Human-in-the-loop before emails/finance changes |
-| T-405 | Execution log + run history UI | P2 | open | Replaces the "runs" counter with real history |
+| T-405 | Execution log + run history UI | P2 | **partial** | `op_job_runs` + `GET /api/jobs` (owner/admin); no UI panel yet |
 
 ## M5 — Activation and retention
 

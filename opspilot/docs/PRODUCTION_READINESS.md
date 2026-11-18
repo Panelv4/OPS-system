@@ -26,11 +26,11 @@ this environment · **RED** = missing or unsafe for launch.
 | Rate limiting | GREEN | DB-backed, distributed-safe; per-address mode requires `TRUST_PROXY=true` |
 | Backups | AMBER | `opspilot/scripts/backup.sh` (pg_dump custom format) exists; **no restore was ever executed** |
 | Restore drill | **RED** | Never performed. Do not go live without one |
-| Observability | **RED** | No structured logs, no error tracking, no metrics, no alerting |
-| Email (verify/reset/invite) | **RED** | No mail transport exists |
-| Billing / payments | **RED** | No gateway, no plans, no entitlements |
-| Member management | **RED** | Roles exist; no invite/role-change path |
-| Background jobs | **RED** | No scheduler/queue |
+| Observability | AMBER | JSON logs + request ids + readiness probe shipped (`JOBS.md`); no error tracker, metrics or alerting yet |
+| Email (verify/reset/invite) | AMBER | Flows implemented and tested; delivery runs on the console transport until a domain is verified (T-201) |
+| Billing / payments | AMBER | Plans, entitlements and webhook state machine shipped in test mode; no merchant account, no hosted checkout, no live charging (T-103a/T-104) |
+| Member management | AMBER | Invite + accept + seats work via API and links; no management UI yet (T-211) |
+| Background jobs | AMBER | `op_jobs` queue, `SKIP LOCKED`, retries, dead letters, `/api/jobs/tick` + cron; handlers are housekeeping and in-app invoice reminders only |
 | Object storage | RED | Documents are base64 in Postgres |
 | Data export / deletion (GDPR) | RED | No account export/deletion |
 | Legal pages (privacy/terms/DPA) | RED | Not drafted in this repository |
@@ -86,12 +86,12 @@ item that can scale faster than revenue.
 ## 3. Pre-launch checklist (must all be GREEN)
 
 ### Engineering
-- [ ] T-201…T-204 email verification, reset, invitations (with a real provider in staging)
-- [ ] T-101…T-108 billing with webhook idempotency and entitlement enforcement
+- [ ] T-201…T-204 verified with a real provider and a verified domain (code is done, delivery is not)
+- [ ] T-101…T-108 billing with webhook idempotency and entitlement enforcement (core done; hosted checkout + history UI open)
 - [ ] T-207 member invite/role change UI
-- [ ] T-401…T-405 job runner + reminder/dunning jobs
+- [x] T-401/T-402 job runner, retries, dead letters · [ ] T-403 reminder *emails* + dunning · [ ] T-405 run-history UI
 - [ ] T-301 object storage adapter with a migration path for existing rows
-- [ ] T-304 structured logs + error tracking hitting a real dashboard
+- [x] T-304 structured logs · [ ] error tracking hitting a real dashboard
 - [ ] Backup **restore** drill, documented with timings (T-303)
 - [ ] `docker build` + `docker compose up` executed by a human or CI on a Docker-capable runner
 - [ ] Load test: 50 concurrent users on the API suite endpoints; watch DB connections (T-305)
@@ -122,7 +122,7 @@ item that can scale faster than revenue.
 ## 4. Operational runbook seeds
 
 **Deploy**: CI green → merge to `main` → Vercel builds → `migrate` job runs before traffic (Vercel
-build step or a manual `npm run migrate` against prod) → `/api/health` 200 → smoke: register,
+build step or a manual `npm run migrate` against prod) → `/api/health/ready` 200 → smoke: register,
 create customer, create invoice, record payment, logout.
 
 **Rollback**: Vercel instant rollback to the previous deployment; migrations are additive-only in

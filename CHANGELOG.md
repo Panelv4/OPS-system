@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.5.0 — Background jobs, readiness and structured logs
+
+### Added
+- Durable job queue on Postgres (`op_jobs`, `op_job_runs`): `FOR UPDATE SKIP LOCKED` claiming,
+  a five-minute lease that reclaims jobs from a crashed worker, exponential backoff (30s doubling
+  to 1h), an attempt cap and a terminal `dead` state that keeps its error, plus one run row per
+  attempt so retries never overwrite history.
+- `POST /api/jobs/tick`, authenticated with `JOBS_TICK_SECRET` and safe to call from several
+  schedulers at once; `?limit=` caps work per tick. Unset secret means 503 (disabled), not open.
+- Two real handlers: `maintenance.prune` (expired sessions, rate-limit buckets, stale demo
+  workspaces, old email tokens/logs, finished jobs) and `records.due_reminders` (one in-app
+  notification per workspace per day for overdue or soon-due invoices).
+- `GET /api/jobs` run history for owners/administrators.
+- `GET /api/health/ready`: database, migration ledger (against `EXPECTED_MIGRATIONS`), queue table
+  and app version; 503 with a reason when any check fails.
+- Structured JSON logging (`log.ts`) with `LOG_LEVEL`, secret/key redaction, `x-request-id`
+  propagation from middleware and one access line per request without the query string.
+- `opspilot/docs/JOBS.md` and 28 job tests (backoff, auth, dedupe, races, lease reclaim, retries,
+  dead letters, both handlers, endpoints, readiness).
+
+### Changed
+- `package.json` now carries a real name and version (`opspilot` 0.5.0) and `/api/health/ready`
+  reports it.
+- Existing `console.*` error paths in auth, mailer, tokens and billing now emit structured lines.
+
+### Notes
+- The restore drill is documented but has not been executed; T-303 stays open until it is.
+- Reminder emails, dunning and an approval gate are not implemented (T-403/T-404).
+
+## 0.4.0 — Email, verification, recovery and invitations
+
+### Added
+- Mailer with two transports: `console` (default, logs and records) and `resend` (HTTP API, no SDK),
+  plus an `op_email_log` delivery table and `MAIL_TRANSPORT` / `MAIL_FROM` / `RESEND_API_KEY` /
+  `APP_URL` configuration with fail-closed validation.
+- Single-use hashed action tokens (`op_email_tokens`): purpose-bound, 24h / 30min / 7d TTLs, atomic
+  consumption, rotation of outstanding tokens.
+- Email verification at registration and `POST /api/session/verify`; `users.email_verified_at` and
+  `user.emailVerified` in the workspace payload.
+- Self-service password reset (`request-reset`, `reset`) that never reveals whether an address has
+  an account and revokes every session on success.
+- Workspace invitations: `POST /api/members` (owner/admin, role-bound, seat-enforced),
+  `POST /api/members/accept`, `GET /api/members`, plus the three link screens on `/login`
+  (`mode=verify|reset|invite`) and a working recovery form replacing the old "not enabled" notice.
+- `opspilot/docs/EMAIL.md` and 12 email tests covering config, templates, token lifecycle and all
+  three flows end to end.
+
+### Notes
+- Delivery runs on the console transport: nothing is sent externally until a domain is verified
+  with Resend. The Resend adapter itself is unverified against the live API.
+- Seats are now enforced, which completes the last billing quota (T-107).
+
 ## 0.3.0 — Billing core (test mode)
 
 ### Added

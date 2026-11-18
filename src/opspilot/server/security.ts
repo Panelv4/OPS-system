@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { sessions, memberships, users, workspaces, rateLimits } from "@/db/schema";
 import { canAccess } from "../lib/domain";
 import { clientIp, config } from "./config";
+import { logError } from "./log";
 import type { RecordKind, Role } from "../lib/types";
 const scrypt = promisify(scryptCallback);
 const COOKIE = "opspilot_session";
@@ -22,7 +23,7 @@ export async function createSession(userId: string, workspaceId: string) {
 export async function getSession() {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
-  const [row] = await db.select({ user: { id: users.id, name: users.name, email: users.email }, workspace: workspaces, role: memberships.role })
+  const [row] = await db.select({ user: { id: users.id, name: users.name, email: users.email, emailVerifiedAt: users.emailVerifiedAt }, workspace: workspaces, role: memberships.role })
     .from(sessions).innerJoin(users, eq(sessions.userId, users.id)).innerJoin(workspaces, eq(sessions.workspaceId, workspaces.id))
     .innerJoin(memberships, and(eq(memberships.userId, sessions.userId), eq(memberships.workspaceId, sessions.workspaceId)))
     .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date()))).limit(1);
@@ -53,7 +54,7 @@ export async function pruneExpiredData() {
       db.delete(workspaces).where(and(eq(workspaces.isDemo, true), lt(workspaces.createdAt, demoCutoff))),
     ]);
   } catch (error) {
-    console.error("OpsPilot housekeeping error:", error instanceof Error ? error.message : "unknown");
+    logError("housekeeping.failed", error);
   }
 }
 
@@ -77,7 +78,7 @@ export async function rateLimit(key: string, max = 30, windowMs = 15 * 60 * 1000
 export function apiError(error: unknown) {
   if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
   if (error instanceof SyntaxError) return Response.json({ error: "Invalid request body." }, { status: 400 });
-  console.error("OpsPilot API error:", error instanceof Error ? error.message : "unknown");
+  logError("api.unhandled", error);
   return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
 }
 export async function readJson(request: Request) { const text = await request.text(); if (text.length > 64_000) throw new ApiError(413, "Request is too large."); return JSON.parse(text); }
