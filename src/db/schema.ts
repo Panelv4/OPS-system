@@ -103,3 +103,44 @@ export const aiUsage = pgTable("op_ai_usage", {
   tokens: integer("tokens").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * Billing state. One subscription per workspace, created lazily on first read so
+ * existing workspaces keep working (they resolve to the free plan).
+ */
+export const subscriptions = pgTable("op_subscriptions", {
+  workspaceId: uuid("workspace_id").primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
+  plan: varchar("plan", { length: 20 }).notNull().default("free"),
+  /** active | trialing | past_due | canceled | incomplete */
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  /** manual (self-hosted / no gateway) | test | stripe */
+  provider: varchar("provider", { length: 20 }).notNull().default("manual"),
+  providerCustomerId: varchar("provider_customer_id", { length: 120 }),
+  providerSubscriptionId: varchar("provider_subscription_id", { length: 120 }),
+  seats: integer("seats").notNull().default(2),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  /** Set when cancellation is requested; access continues until this instant. */
+  cancelAt: timestamp("cancel_at", { withTimezone: true }),
+  /** Access continues until here after a failed payment (failed-payment grace). */
+  graceUntil: timestamp("grace_until", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * Append-only ledger of gateway events. `(provider, event_id)` is unique, which
+ * is what makes webhook processing idempotent under at-least-once delivery.
+ */
+export const billingEvents = pgTable("op_billing_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  provider: varchar("provider", { length: 20 }).notNull(),
+  eventId: varchar("event_id", { length: 200 }).notNull(),
+  type: varchar("type", { length: 80 }).notNull(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+  /** received | applied | ignored | failed */
+  status: varchar("status", { length: 20 }).notNull().default("received"),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  error: text("error"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+}, (t) => [unique("op_billing_events_provider_event").on(t.provider, t.eventId), index("op_billing_events_workspace").on(t.workspaceId, t.receivedAt)]);

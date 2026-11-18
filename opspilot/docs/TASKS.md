@@ -27,14 +27,20 @@ Priority: **P0** = blocks taking money · **P1** = blocks self-serve launch · *
 
 | ID | Task | Priority | Status | Notes / acceptance |
 | --- | --- | --- | --- | --- |
-| T-101 | Plan catalogue in config (Free/Starter $29/Growth $59/Scale $119; seats, AI quota, storage quota) | P0 | open | Prices come from `PRICING_RESEARCH` after validation; no literal prices in components |
-| T-102 | `subscriptions`, `billing_events`, `plan_limits` tables + migration | P0 | open | Entitlement reads must not require a network call |
-| T-103 | Gateway adapter interface + Stripe implementation (test mode) | P0 | blocked | Needs merchant account (founder). Razorpay later for INR |
-| T-104 | Checkout session creation, success/cancel routes | P0 | open | Never grant entitlement from a client redirect |
-| T-105 | Webhook endpoint: signature verification, replay window, idempotent event log | P0 | open | Same `requestId` replays must be no-ops; covered by a test |
-| T-106 | Upgrade / downgrade / cancel / failed-payment (grace period) state machine | P0 | open | Downgrade at period end; entitlement loss must be reversible |
-| T-107 | Entitlement enforcement (seats, AI quota, storage, workflows) in API + UI | P0 | open | Over-quota must fail *closed* with an actionable message |
-| T-108 | Billing history page + receipts | P1 | open | Reads from `billing_events`, no gateway round trip |
+| T-101 | Plan catalogue in config (Free/Starter $29/Growth $59/Scale $119; seats, AI quota, storage quota) | P0 | **done** | `src/opspilot/lib/plans.ts`; env price overrides; catalogue tests |
+| T-102 | `subscriptions`, `billing_events` tables + migration | P0 | **done** | migration `0002_lovely_mach_iv.sql`; lazy free row per workspace |
+| T-103 | Gateway adapter interface + Stripe implementation (test mode) | P0 | blocked → **T-103a** | `BILLING_PROVIDER=stripe` refuses with 501 rather than faking a URL. Needs merchant account (founder) |
+| T-104 | Checkout session creation | P0 | **partial** | `POST /api/billing/checkout` records intent (202) and never grants; hosted page needs the provider |
+| T-105 | Webhook signature verification, replay window, idempotent event log | P0 | **done** | HMAC-SHA256 `t=.v1=`, 300s tolerance, `unique(provider,event_id)`; 5 signature cases + HTTP replay test |
+| T-106 | Upgrade / downgrade / cancel / failed-payment / expiry state machine | P0 | **done** (no proration) | `applyBillingEvent` + `effectivePlanId`; grace 7d; every branch unit-tested |
+| T-107 | Entitlement enforcement (AI, storage, workflows) | P0 | **done** for 3 of 4 | seats blocked on T-204; all fail closed with 402 + plan name |
+| T-108 | Billing history page + receipts | P1 | open | `op_billing_events` is the source; `GET /api/billing` exists |
+| T-109 | Wire `Settings.tsx` plan tab to `GET /api/billing` (remove stale ₹101/₹499/₹1,499 copy) | P1 | open | UI currently shows "proposed plans" text |
+| T-110 | Trial creation + proration on mid-period upgrade | P2 | open | `trialing` status recognised but never set |
+
+**M1 progress:** billing core shipped in this pass (`BILLING.md`), test-mode only, no gateway and
+no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`), billing history UI
+(T-108), plan-tab wiring (T-109), trials/proration (T-110).
 
 ## M2 — Self-serve launch (a stranger can sign up, recover, invite, and trust it)
 

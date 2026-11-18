@@ -59,6 +59,14 @@ Use a disposable test instance/database. API tests register isolated workspaces 
 
 `TEST_BASE_URL` defaults to `http://localhost:3000`. The tests' `DATABASE_URL` must point to the same database as the server. [Actual validation results](opspilot/docs/TEST_RESULTS.md) are recorded after execution, not assumed.
 
+## Billing
+
+Billing is opt-in and disabled by default: without `BILLING_PROVIDER`, every workspace resolves to
+the free plan and checkout returns 503. With `BILLING_PROVIDER=test` the full plan lifecycle can be
+exercised locally — a paid plan is granted **only** by a signature-verified webhook, never by
+checkout or a client redirect. No payment gateway is connected; `stripe` refuses with 501 until an
+adapter and merchant account exist. See [BILLING.md](opspilot/docs/BILLING.md).
+
 ## Optional AI
 
 Core features work without external credentials. To explicitly enable paid-provider requests, set `AI_ENABLED=true`, supply `OPENAI_API_KEY`, and optionally set `OPENAI_BASE_URL` and `OPENAI_MODEL`. Never put these values in `NEXT_PUBLIC_*` variables.

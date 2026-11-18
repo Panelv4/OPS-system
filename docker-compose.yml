@@ -37,6 +37,8 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       AI_ENABLED: ${AI_ENABLED:-false}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      BILLING_PROVIDER: ${BILLING_PROVIDER:-}
+      BILLING_WEBHOOK_SECRET: ${BILLING_WEBHOOK_SECRET:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}

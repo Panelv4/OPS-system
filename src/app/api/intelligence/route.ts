@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { aiUsage } from "@/db/schema";
 import { ApiError, apiError, assertOrigin, requireSession, rateLimit, readJson } from "@/opspilot/server/security";
 import { loadWorkspace } from "@/opspilot/server/repository";
+import { enforceQuota } from "@/opspilot/server/billing";
 import { summarize } from "@/opspilot/lib/domain";
 import type { WorkspaceData, RecordKind } from "@/opspilot/lib/types";
 const intents = ["overview", "revenue", "overdue", "expenses", "inventory", "leads", "projects", "tasks", "workflow"] as const;
@@ -20,7 +21,9 @@ function localIntent(q: string): Intent {
 }
 export async function POST(request: Request) {
   try {
-    assertOrigin(request); const session = await requireSession(); await rateLimit(`ai:${session.user.id}`, 30, 3600000);
+    assertOrigin(request); const session = await requireSession();
+    await rateLimit(`ai:${session.user.id}`, 30, 3600000);
+    await enforceQuota(session.workspace.id, "ai");
     const parsed = z.object({ question: z.string().trim().min(2).max(1000) }).strict().safeParse(await readJson(request));
     if (!parsed.success) throw new ApiError(400, "Ask a question of 2–1,000 characters.");
     const question = parsed.data.question; let intent = localIntent(question.toLowerCase()); let provider = "Local insights"; let tokens = 0;
