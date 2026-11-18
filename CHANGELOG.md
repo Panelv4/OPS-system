@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.0 — Billing core (test mode)
+
+### Added
+- Plan catalogue as configuration (`lib/plans.ts`): Free / Starter $29 / Growth $59 / Scale $119,
+  seats, AI quota, storage and automation limits, plus environment price overrides.
+- `op_subscriptions` and `op_billing_events` tables (migration `0002`), with
+  `unique(provider, event_id)` for idempotent webhook delivery.
+- `server/billing.ts`: subscription state machine, entitlement resolution, quota enforcement, and
+  Stripe-compatible HMAC webhook verification with a 300-second replay window.
+- `GET /api/billing` (plan, usage, limits, catalogue), `POST /api/billing/checkout` (records intent,
+  never grants), `POST /api/billing/webhook` (the only path that can grant a paid plan).
+- Quota enforcement on AI questions, document storage and active automations; 402 with the plan
+  name and limit.
+- `opspilot/docs/BILLING.md` and 13 new billing tests (catalogue, signatures, state machine,
+  quotas, HTTP round trip).
+
+### Notes
+- No payment gateway is connected. `BILLING_PROVIDER=stripe` returns 501 by design; a merchant
+  account and live charging require founder approval.
+- 21 API tests and 34 unit/migration/hardening tests unchanged and passing; migration test now
+  asserts the exact table set instead of a count.
+
 ## 0.2.0 — Audit and hardening pass
 
 ### Added

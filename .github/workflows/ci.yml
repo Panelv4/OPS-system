@@ -20,6 +20,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/opspilot_test
       COOKIE_SECURE: "false"
       AI_ENABLED: "false"
+      BILLING_PROVIDER: test
+      BILLING_WEBHOOK_SECRET: test-webhook-secret-0123456789
       TEST_BASE_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -47,6 +49,7 @@ jobs:
           cat /tmp/opspilot-server.log
           exit 1
       - run: npx tsx --test opspilot/tests/api.test.ts
+      - run: npx tsx --test opspilot/tests/billing.test.ts
       - run: npx playwright test --config=opspilot/tests/playwright.config.ts
       - uses: actions/upload-artifact@v7
         if: always()

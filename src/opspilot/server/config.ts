@@ -11,8 +11,12 @@ export class ConfigError extends Error {}
 /** Loosely typed environment bag so tests can pass plain objects. */
 export type EnvBag = Record<string, string | undefined>;
 
+export type BillingProviderId = "test" | "stripe";
+
 export type OpsConfig = {
   databaseUrl: string;
+  billingProvider: BillingProviderId | "";
+  billingWebhookSecret: string;
   cookieSecure: boolean;
   trustProxy: boolean;
   aiEnabled: boolean;
@@ -59,6 +63,18 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
     console.warn("[config] OPENAI_API_KEY does not look like an OpenAI key. Verify the provider and key.");
   }
 
+  const rawProvider = (env.BILLING_PROVIDER ?? "").trim().toLowerCase();
+  if (rawProvider && rawProvider !== "test" && rawProvider !== "stripe") {
+    throw new ConfigError('BILLING_PROVIDER must be "test", "stripe", or unset (billing disabled).');
+  }
+  const billingProvider = rawProvider as BillingProviderId | "";
+  const billingWebhookSecret = (env.BILLING_WEBHOOK_SECRET ?? "").trim();
+  if (billingProvider && billingWebhookSecret.length < 16) {
+    // Fail closed: without a secret, unsigned callbacks would be indistinguishable
+    // from revenue, which is exactly the mistake that grants free entitlements.
+    throw new ConfigError("BILLING_WEBHOOK_SECRET (16+ characters) is required when BILLING_PROVIDER is set.");
+  }
+
   const openaiBaseUrl = (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
   if (aiEnabled && !/^https:\/\//.test(openaiBaseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(openaiBaseUrl)) {
     throw new ConfigError("OPENAI_BASE_URL must use https:// (plain http is only allowed for localhost).");
@@ -66,6 +82,8 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
 
   return Object.freeze({
     databaseUrl,
+    billingProvider,
+    billingWebhookSecret,
     cookieSecure: cookieSecureFlag ?? isProduction,
     trustProxy,
     aiEnabled,
@@ -94,6 +112,9 @@ export function validateConfig(env: EnvBag = process.env): OpsConfig {
 
   if (resolved.isProduction && !resolved.cookieSecure) {
     warnings.push("COOKIE_SECURE=false in production: session cookies will be sent over plain HTTP. Terminate TLS and enable secure cookies before launch.");
+  }
+  if (!resolved.billingProvider) {
+    warnings.push("Billing is disabled (BILLING_PROVIDER unset): workspaces resolve to the free plan and checkout returns 503. Expected for self-hosted use.");
   }
   if (!resolved.trustProxy) {
     warnings.push("TRUST_PROXY=false: forwarded headers are ignored, so per-client rate limiting is disabled and only per-account limits apply. Set TRUST_PROXY=true behind a proxy you control (Vercel, Cloudflare, nginx).");

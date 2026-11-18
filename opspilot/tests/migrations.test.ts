@@ -17,7 +17,12 @@ it("generated migrations install all tables on a fresh database and can be rerun
   try {
     await migrate(target, { migrationsFolder: "opspilot/migrations" });
     const result = await target.execute(sql`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'op_%'`);
-    assert.equal(result.rows.length, 12);
+    const tables = result.rows.map((row) => (row as { table_name: string }).table_name).sort();
+    assert.deepEqual(tables, [
+      "op_ai_usage", "op_audit_events", "op_billing_events", "op_files", "op_memberships", "op_notifications",
+      "op_payments", "op_rate_limits", "op_records", "op_sessions", "op_stock_movements", "op_subscriptions",
+      "op_users", "op_workspaces",
+    ], "every modelled table must exist after a fresh migration");
     await migrate(target, { migrationsFolder: "opspilot/migrations" });
     const journal = await target.execute(sql`SELECT count(*)::integer AS count FROM drizzle.__drizzle_migrations`);
     const expected = (JSON.parse(readFileSync("opspilot/migrations/meta/_journal.json", "utf8")) as { entries: unknown[] }).entries.length;

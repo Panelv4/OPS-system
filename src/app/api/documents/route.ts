@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { files, records, auditEvents } from "@/db/schema";
 import { ApiError, apiError, assertOrigin, requireSession, rateLimit } from "@/opspilot/server/security";
 import { MAX_UPLOAD_BYTES, validateUpload } from "@/opspilot/lib/uploads";
+import { enforceQuota } from "@/opspilot/server/billing";
 export async function POST(request: Request) {
   try {
     assertOrigin(request, true); const session = await requireSession("documents"); await rateLimit(`upload:${session.user.id}`, 20);
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
     if (file.size > MAX_UPLOAD_BYTES) throw new ApiError(413, "Maximum file size is 5 MB.");
     const bytes = new Uint8Array(await file.arrayBuffer()); let contentType: string;
     try { contentType = validateUpload(bytes, file.name); } catch (e) { throw new ApiError(400, e instanceof Error ? e.message : "Unsupported file."); }
+    await enforceQuota(session.workspace.id, "storage", bytes.length);
     const filename = file.name.replace(/[^a-zA-Z0-9._ ()-]/g, "_").slice(0, 180) || "document.txt";
     const category = String(body.get("category") ?? "General").slice(0, 80);
     const record = await db.transaction(async tx => {

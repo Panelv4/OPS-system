@@ -23,7 +23,7 @@ have no implementation at all.
 | 10 | AI intelligence | Deterministic local answers over authorised records for 9 intents; optional provider intent classification (off by default); draft workflow generation | **Done** (local) / **Works, untested** (provider) | API test "deterministic financial answers"; no live provider key used |
 | 11 | Workflow automation | Event-triggered in-app notifications inside the creating transaction; run counter; draft→review→activate | **Partial** | No scheduler, delays, retries, emails, approvals (F-13) |
 | 12 | Search & notifications | Client-side global search over loaded records; in-app notifications with read state; activity feed filtered by role | **Done** | API test "notification read status" |
-| 13 | Multi-tenancy, RBAC & **billing** | Tenancy and RBAC done (DB-enforced). **Billing absent** | **Partial** | No plans, subscriptions, entitlements, gateway, invoices-to-customer (F-11) |
+| 13 | Multi-tenancy, RBAC & **billing** | Tenancy and RBAC done (DB-enforced). Billing core shipped in test mode: plans, subscriptions, entitlements, quotas, signed webhooks | **Partial** | No gateway adapter, hosted checkout, proration, dunning email, or seat enforcement. `BILLING.md` §8 |
 
 ## Cross-cutting capabilities
 

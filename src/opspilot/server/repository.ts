@@ -4,6 +4,7 @@ import { records, payments, auditEvents, notifications, stockMovements } from "@
 import { allowedKinds, createRecordSchema, invoiceTotal, moneyToCents } from "../lib/domain";
 import { kindViews, statuses, type RecordKind } from "../lib/types";
 import { ApiError, type Session } from "./security";
+import { enforceQuota } from "./billing";
 import { z } from "zod";
 
 export async function loadWorkspace(session: Session) {
@@ -84,6 +85,7 @@ export async function updateRecord(session: Session, id: string, body: unknown) 
       if (["invoices", "expenses", "documents"].includes(record.kind)) throw new ApiError(400, "Financial history cannot be overwritten. Record a payment instead.");
       if (!statuses[record.kind as RecordKind].includes(input.status)) throw new ApiError(400, "Invalid status.");
       if (record.kind === "workflows" && input.status === "Active" && (!record.details.trigger || record.details.action !== "notification")) throw new ApiError(400, "This workflow needs a supported trigger and action before activation.");
+      if (record.kind === "workflows" && input.status === "Active" && record.status !== "Active") await enforceQuota(session.workspace.id, "workflows", 1);
       await tx.update(records).set({ status: input.status }).where(and(eq(records.workspaceId, session.workspace.id), eq(records.id, id)));
       event = input.status === "Done" ? "completed" : "updated"; metadata.before = record.status; metadata.after = input.status;
     } else if (input.action === "payment") {
