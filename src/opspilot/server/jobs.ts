@@ -38,6 +38,7 @@ export type JobRow = typeof jobs.$inferSelect;
 export type JobKind = "maintenance.prune" | "records.due_reminders" | "noop";
 
 export const JOB_LEASE_MS = 5 * 60 * 1000;
+const JOB_LEASE_SECONDS = JOB_LEASE_MS / 1000;
 export const BACKOFF_BASE_MS = 30_000;
 export const MAX_BACKOFF_MS = 60 * 60 * 1000;
 export const MAX_JOBS_PER_TICK = 25;
@@ -157,7 +158,10 @@ export async function enqueueJob(input: EnqueueInput): Promise<string | null> {
     .values({
       kind: input.kind,
       payload: input.payload ?? {},
-      runAt: input.runAt ?? new Date(),
+      // Default to the *database* clock: run_at is compared against `now()` when
+      // claiming, and app/DB clock skew of even a second would otherwise delay or
+      // early-run jobs in a way that is invisible until a test flakes.
+      runAt: input.runAt ?? sql`now()`,
       dedupeKey: input.dedupeKey,
       workspaceId: input.workspaceId,
       maxAttempts: input.maxAttempts ?? 6,
@@ -171,7 +175,7 @@ export async function enqueueJob(input: EnqueueInput): Promise<string | null> {
 export async function ensureRecurringJobs(now = new Date()): Promise<void> {
   const day = now.toISOString().slice(0, 10);
   for (const kind of RECURRING_KINDS) {
-    await enqueueJob({ kind, dedupeKey: `recurring:${kind}:${day}`, runAt: now });
+    await enqueueJob({ kind, dedupeKey: `recurring:${kind}:${day}` });
   }
 }
 
@@ -184,12 +188,14 @@ export async function ensureRecurringJobs(now = new Date()): Promise<void> {
  */
 export async function claimJobs(limit: number, workerId: string, now = new Date()): Promise<JobRow[]> {
   const batch = Math.max(1, Math.min(limit, MAX_JOBS_PER_TICK));
-  const leaseCutoff = new Date(now.getTime() - JOB_LEASE_MS);
 
   return db.transaction(async (tx) => {
+    // Both comparisons stay on the database clock (run_at is written with `now()`,
+    // and the lease is measured from `locked_at`), so clock skew between the app
+    // container and the database can never make a due job look early.
     const claimable = or(
-      and(eq(jobs.status, "pending"), lte(jobs.runAt, now)),
-      and(eq(jobs.status, "running"), lt(jobs.lockedAt, leaseCutoff)),
+      and(eq(jobs.status, "pending"), sql`${jobs.runAt} <= now()`),
+      and(eq(jobs.status, "running"), sql`${jobs.lockedAt} < now() - make_interval(secs => ${JOB_LEASE_SECONDS})`),
     );
     const candidates = await tx
       .select()
@@ -267,7 +273,7 @@ export async function runJob(job: JobRow): Promise<JobOutcome> {
     const message = error instanceof Error ? error.message : "unknown error";
     const dead = job.attempts >= job.maxAttempts;
     const finishedAt = new Date();
-    const retryAt = new Date(finishedAt.getTime() + backoffDelayMs(job.attempts));
+    const retryDelaySeconds = backoffDelayMs(job.attempts) / 1000;
 
     await db
       .update(jobs)
@@ -276,7 +282,7 @@ export async function runJob(job: JobRow): Promise<JobOutcome> {
         lastError: message.slice(0, 2000),
         lockedAt: null,
         lockedBy: null,
-        runAt: dead ? job.runAt : retryAt,
+        runAt: dead ? job.runAt : sql`now() + make_interval(secs => ${retryDelaySeconds})`,
         updatedAt: finishedAt,
       })
       .where(eq(jobs.id, job.id));
@@ -291,7 +297,7 @@ export async function runJob(job: JobRow): Promise<JobOutcome> {
     });
 
     if (dead) logError("job.dead", error, { jobId: job.id, kind: job.kind, attempt: job.attempts });
-    else logWarn("job.retry", { jobId: job.id, kind: job.kind, attempt: job.attempts, retryAt: retryAt.toISOString(), error: message });
+    else logWarn("job.retry", { jobId: job.id, kind: job.kind, attempt: job.attempts, retryDelaySeconds, error: message });
     return dead ? "dead" : "retry";
   }
 }

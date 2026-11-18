@@ -171,7 +171,7 @@ describe("queue: claiming, execution, retries", () => {
     const early = await runDueJobs({ ensureRecurring: false });
     assert.equal(early.claimed, 0);
 
-    await db.update(jobs).set({ runAt: new Date(Date.now() - 1000) }).where(eq(jobs.id, id!));
+    await db.update(jobs).set({ runAt: new Date(Date.now() - 120_000) }).where(eq(jobs.id, id!));
     await runDueJobs({ ensureRecurring: false });
     [job] = await db.select().from(jobs).where(eq(jobs.id, id!));
     assert.equal(job.status, "dead");
@@ -182,14 +182,16 @@ describe("queue: claiming, execution, retries", () => {
     assert.deepEqual(runs.map((run) => run.status), ["failed", "dead"]);
 
     // Dead is terminal: no further claims even once its run time passes.
-    await db.update(jobs).set({ runAt: new Date(Date.now() - 1000) }).where(eq(jobs.id, id!));
+    await db.update(jobs).set({ runAt: new Date(Date.now() - 120_000) }).where(eq(jobs.id, id!));
     const after = await runDueJobs({ ensureRecurring: false });
     assert.equal(after.claimed, 0);
   });
 
   it("dead-letters an unknown job kind instead of crashing the tick", async () => {
     await truncateQueue();
-    await db.insert(jobs).values({ kind: "does.not.exist", maxAttempts: 1 });
+    // Explicit past run_at: the column default is the database clock, and a claim
+    // compares against it, so tests never depend on app/db clock agreement.
+    await db.insert(jobs).values({ kind: "does.not.exist", maxAttempts: 1, runAt: new Date(Date.now() - 120_000) });
     const summary = await runDueJobs({ ensureRecurring: false });
     assert.equal(summary.dead, 1);
     const [job] = await db.select().from(jobs);
@@ -232,7 +234,7 @@ describe("queue: claiming, execution, retries", () => {
     stubHandler("noop", async () => { calls += 1; });
     const id = await enqueueJob({ kind: "noop" as JobKind });
     await db.update(jobs)
-      .set({ status: "running", lockedBy: "dead-worker", lockedAt: new Date(Date.now() - JOB_LEASE_MS - 60_000) })
+      .set({ status: "running", lockedBy: "dead-worker", lockedAt: new Date(Date.now() - JOB_LEASE_MS - 120_000) })
       .where(eq(jobs.id, id!));
 
     const summary = await runDueJobs({ ensureRecurring: false });
@@ -261,8 +263,15 @@ describe("queue: claiming, execution, retries", () => {
 
   it("runJob reports an outcome even for a job it cannot handle", async () => {
     await truncateQueue();
-    const [row] = await db.insert(jobs).values({ kind: "nope", maxAttempts: 1, attempts: 1 }).returning();
+    const [row] = await db.insert(jobs).values({ kind: "nope", maxAttempts: 1, attempts: 1, runAt: new Date(Date.now() - 120_000) }).returning();
     assert.equal(await runJob(row), "dead");
+  });
+
+  it("never claims a job whose run time is in the future, on the database clock", async () => {
+    await truncateQueue();
+    await enqueueJob({ kind: "noop" as JobKind, runAt: new Date(Date.now() + 120_000) });
+    const summary = await runDueJobs({ ensureRecurring: false });
+    assert.equal(summary.claimed, 0);
   });
 
   it("summarises queue state for the admin view", async () => {

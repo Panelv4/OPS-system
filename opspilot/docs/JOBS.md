@@ -47,7 +47,13 @@ LIMIT $1
 FOR UPDATE SKIP LOCKED;
 ```
 
-then flips the rows to `running` with a fresh lease and `attempts + 1`. The second
+then flips the rows to `running` with a fresh lease and `attempts + 1`.
+
+Both comparisons use the **database** clock (`now()`), and the `run_at` default is
+`now()` as well. That detail matters: an app container whose clock is a second
+ahead of the database would otherwise see a freshly enqueued job as "not due yet",
+which surfaces as a job that sits idle for a few seconds — or as a test that fails
+only on CI hardware. The second
 clause is what makes a crashed worker recoverable: its lease expires after
 `JOB_LEASE_MS` (5 minutes) and the job is retried instead of being stuck forever.
 

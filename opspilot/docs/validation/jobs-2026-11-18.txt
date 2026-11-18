@@ -62,6 +62,17 @@ GET  /api/health/ready  response header -> x-request-id: 6dc082d2-a758-4f3c-a6d0
 The access line carries method and path only — the query string is never logged, because reset
 and invitation tokens travel there.
 
+## Regression found by CI
+
+The first two CI runs failed in the queue suite (locally: always green). Cause: claims
+compared `run_at` against the *application* clock while `run_at` could be written by
+the *database* default `now()`, so any skew between the two clocks made a due job look
+premature. Fixed by keeping both sides on the database clock (`now()`,
+`make_interval(secs => …)`), including retry scheduling; tests that insert rows directly
+now pass an explicit past `run_at` instead of relying on the default. A new test
+("never claims a job whose run time is in the future, on the database clock") pins the
+behaviour. 29/29 after the fix, three consecutive runs.
+
 ## Not verified here
 
 - No real scheduler was configured (cron/systemd/timer): the endpoint was called by hand.
