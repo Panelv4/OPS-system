@@ -24,6 +24,7 @@ jobs:
       BILLING_WEBHOOK_SECRET: test-webhook-secret-0123456789
       MAIL_TRANSPORT: console
       APP_URL: http://localhost:3000
+      JOBS_TICK_SECRET: jobs-tick-secret-0123456789
       TEST_BASE_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -53,6 +54,7 @@ jobs:
       - run: npx tsx --test opspilot/tests/api.test.ts
       - run: npx tsx --test opspilot/tests/billing.test.ts
       - run: npx tsx --test opspilot/tests/email.test.ts
+      - run: npx tsx --test opspilot/tests/jobs.test.ts
       - run: npx playwright test --config=opspilot/tests/playwright.config.ts
       - uses: actions/upload-artifact@v7
         if: always()

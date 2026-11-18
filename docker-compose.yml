@@ -43,6 +43,8 @@ services:
       MAIL_FROM: ${MAIL_FROM:-OpsPilot <no-reply@localhost>}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      JOBS_TICK_SECRET: ${JOBS_TICK_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}

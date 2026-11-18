@@ -15,6 +15,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { emailTokens } from "@/db/schema";
+import { logError } from "./log";
 
 export type TokenPurpose = "verify" | "reset" | "invite";
 
@@ -98,6 +99,6 @@ export async function pruneExpiredTokens(): Promise<void> {
   try {
     await db.delete(emailTokens).where(lt(emailTokens.expiresAt, cutoff));
   } catch (error) {
-    console.error("[tokens] prune failed:", error instanceof Error ? error.message : "unknown");
+    logError("tokens.prune_failed", error);
   }
 }

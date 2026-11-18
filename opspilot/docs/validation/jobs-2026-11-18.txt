@@ -1,0 +1,71 @@
+# Jobs / readiness / logging verification log
+
+Date: 2026-11-18 · Node 22.22.3 · Next.js 16.4.6 · PostgreSQL 18.6 (embedded, 55432)
+Server env: JOBS_TICK_SECRET=jobs-tick-secret-0123456789, MAIL_TRANSPORT=console,
+BILLING_PROVIDER=test, LOG_LEVEL unset (info)
+
+## Test suites
+
+```
+npx tsx --test opspilot/tests/jobs.test.ts                    28/28 pass
+npx tsx --test opspilot/tests/email.test.ts                   12/12 pass
+npx tsx --test opspilot/tests/api.test.ts                     21/21 pass
+npx tsx --test opspilot/tests/billing.test.ts                 13/13 pass
+npx tsx --test domain + migrations + hardening                34/34 pass
+npm run lint / npx tsc --noEmit / npx next build              pass (20 routes)
+```
+
+`jobs.test.ts` covers: exponential backoff and its one-hour cap; tick auth (no secret -> 503,
+wrong/absent/non-bearer -> 401, exact secret -> ok); weak `JOBS_TICK_SECRET` rejected at boot;
+secret redaction and never-throwing logs; exactly-once execution of a due job with an attempt row;
+dedupe keys; future jobs left alone; retry with a future `run_at`; dead-lettering at the attempt
+cap with `failed` then `dead` run rows; unknown kinds dead-lettering instead of crashing a tick;
+per-tick cap; two workers claiming four jobs concurrently and getting four distinct ids; lease
+reclaim after a simulated crashed worker; valid leases left alone; housekeeping deleting exactly
+the expired rows (and keeping a live session and a fresh demo workspace); invoice reminders being
+per-workspace, same-day idempotent and ignoring paid/draft invoices; HTTP auth on `/api/jobs` and
+`/api/jobs/tick`; `GET` on the tick route returning 405; readiness returning 200 with migration
+detail.
+
+## Live probes
+
+```
+POST /api/jobs/tick (valid secret, ?limit=5)
+{"ok":true,"claimed":2,"succeeded":2,"retried":0,"dead":0,"durationMs":19,
+ "jobs":[{"id":"c210a060-…","kind":"maintenance.prune","outcome":"succeeded"},
+         {"id":"58eb5cd5-…","kind":"records.due_reminders","outcome":"succeeded"}]}
+
+POST /api/jobs/tick (again, same day)
+{"ok":true,"claimed":0,…}                       <- recurring work already queued today
+
+POST /api/jobs/tick (wrong secret)     -> 401
+POST /api/jobs/tick (no header)        -> 401 {"error":"Unauthorised."}
+POST /api/jobs/tick (server started without JOBS_TICK_SECRET)
+                                       -> 503 {"error":"Background jobs are disabled.",
+                                               "notice":"Set JOBS_TICK_SECRET to enable the job runner."}
+GET  /api/jobs (anonymous)             -> 401
+GET  /api/health  (liveness)           -> 200
+GET  /api/health/ready                 -> 200 {"ok":true,"version":"0.5.0","checks":{"database":{"ok":true},
+                                          "migrations":{"ok":true,"detail":"5 migrations applied"},"jobs":{"ok":true}}}
+GET  /api/health/ready  response header -> x-request-id: 6dc082d2-a758-4f3c-a6d0-0d2909bc9bd8
+```
+
+## Log lines as emitted (verbatim)
+
+```
+{"ts":"2026-11-18T03:14:42.066Z","level":"info","service":"opspilot","event":"http.request","requestId":"4e2fb217-ee66-4afd-81f7-3776ffe760c5","method":"POST","path":"/api/jobs/tick"}
+{"ts":"2026-11-18T03:14:42.082Z","level":"info","service":"opspilot","event":"job.succeeded","jobId":"c210a060-b988-42ca-878b-a46f63af4468","kind":"maintenance.prune","attempt":1}
+{"ts":"2026-11-18T03:14:42.088Z","level":"info","service":"opspilot","event":"jobs.tick","workerId":"tick-mwljslxx","claimed":2,"succeeded":2,"retried":0,"dead":0,"durationMs":19}
+{"ts":"2026-11-18T03:14:42.112Z","level":"warn","service":"opspilot","event":"jobs.tick_unauthorised","ip":"127.0.0.1"}
+```
+
+The access line carries method and path only — the query string is never logged, because reset
+and invitation tokens travel there.
+
+## Not verified here
+
+- No real scheduler was configured (cron/systemd/timer): the endpoint was called by hand.
+- The restore drill was **not** executed: this sandbox's embedded Postgres ships only
+  `initdb`/`pg_ctl`/`postgres`, with no `pg_dump`/`pg_restore`. Procedure is in `JOBS.md`; T-303
+  stays open.
+- No error tracker, metrics or alerting: `dead` jobs are visible in the database and logs only.

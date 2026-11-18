@@ -59,6 +59,18 @@ Use a disposable test instance/database. API tests register isolated workspaces 
 
 `TEST_BASE_URL` defaults to `http://localhost:3000`. The tests' `DATABASE_URL` must point to the same database as the server. [Actual validation results](opspilot/docs/TEST_RESULTS.md) are recorded after execution, not assumed.
 
+## Operations
+
+Background work runs through a Postgres-backed queue, so no worker host is needed:
+call `POST /api/jobs/tick` from any cron every minute with
+`Authorization: Bearer $JOBS_TICK_SECRET`. `/api/health/ready` reports database,
+migration state, queue and version (503 when not ready). Every log line is JSON with a
+request id; `LOG_LEVEL` filters them. See [JOBS.md](opspilot/docs/JOBS.md).
+
+```bash
+curl -fsS -X POST http://localhost:3000/api/jobs/tick -H "Authorization: Bearer $JOBS_TICK_SECRET"
+```
+
 ## Email
 
 Verification, password recovery and invitations are implemented with single-use, hashed,

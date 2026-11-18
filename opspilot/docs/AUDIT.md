@@ -226,7 +226,7 @@ risk) · MEDIUM (meaningful weakness or operational risk) · LOW (hardening) · 
 - **Recommended fix**: storage abstraction with a Postgres-backed adapter (current behaviour) and
   an S3-compatible adapter, plus document deletion and soft-delete/version columns. Tracked as T-301.
 
-### F-13 — Automation is transactional notifications, not a job engine · HIGH (product gap) · open
+### F-13 — Automation is transactional notifications, not a job engine · HIGH (product gap) · partly fixed
 
 - **Files**: `src/opspilot/server/repository.ts` (`runWorkflows`)
 - **Evidence**: workflows fire synchronously inside the creating transaction and only insert an
@@ -237,6 +237,12 @@ risk) · MEDIUM (meaningful weakness or operational risk) · LOW (hardening) · 
 - **Recommended fix**: `jobs` table + `SKIP LOCKED` worker loop, idempotency keys, attempt/backoff
   columns, and a `/api/jobs/tick` route callable by a platform cron (no new infrastructure).
   Tracked as T-401…T-405.
+- **Status (2026-11-18)**: the queue exists — `op_jobs`/`op_job_runs`, `FOR UPDATE SKIP LOCKED`
+  claiming, lease reclaim, exponential backoff, dead-lettering, `POST /api/jobs/tick` behind
+  `JOBS_TICK_SECRET`, run history at `GET /api/jobs` (`JOBS.md`). The first two real handlers are
+  housekeeping and invoice due-reminders (in-app only). **Still open:** scheduled email sends
+  (reminders go to the notification bell, not the inbox), dunning, approval gates, and a UI for run
+  history.
 
 ### F-14 — RBAC is a static matrix with no per-user adjustment · MEDIUM (design) · open
 
@@ -250,21 +256,27 @@ risk) · MEDIUM (meaningful weakness or operational risk) · LOW (hardening) · 
 - **Recommended fix**: member management endpoints + UI, role change with audit, then evaluate
   per-module overrides. Tracked as T-207.
 
-### F-15 — Health endpoint exposes only liveness, not readiness · LOW · open
+### F-15 — Health endpoint exposes only liveness, not readiness · LOW · **fixed**
 
 - **Files**: `src/app/api/health/route.ts`
 - **Evidence**: `select 1` and a 500 on failure — reasonable, but it does not distinguish
   "database unreachable" from "migrations pending", which is what a deploy gate needs.
 - **Recommended fix**: keep `/api/health` as liveness; add `/api/health/ready` reporting migration
   state and version. Tracked as T-303.
+- **Status (2026-11-18)**: `/api/health/ready` reports database, migration ledger (against
+  `EXPECTED_MIGRATIONS`, asserted by `migrations.test.ts`), queue table and app version, and returns
+  503 when any check fails. The restore drill that belongs to T-303 is documented but not executed.
 
-### F-16 — No structured logging, metrics or audit export · MEDIUM (operations) · open
+### F-16 — No structured logging, metrics or audit export · MEDIUM (operations) · partly fixed
 
 - **Files**: everywhere (`console.error` in `apiError`, `console.warn` in config)
 - **Evidence**: errors are logged as a single string with no request id, user, route or latency.
 - **Impact**: an incident on launch week is undebuggable beyond "something went wrong".
 - **Recommended fix**: request id + structured JSON logs behind a tiny `log()` helper; error
   monitoring hook (Sentry-compatible DSN, optional). Tracked as T-304.
+- **Status (2026-11-18)**: JSON logs with request ids, redaction and `LOG_LEVEL` are in place, and
+  middleware propagates `x-request-id`. **Still open:** no error tracker (no grouped issues, no
+  alerting), no metrics export, no audit-log export or UI.
 
 ### F-17 — Financial reporting is a documented approximation · LOW (correctly disclosed) · accepted
 

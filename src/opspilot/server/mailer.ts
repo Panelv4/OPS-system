@@ -15,6 +15,7 @@
 import { db } from "@/db";
 import { emailLog } from "@/db/schema";
 import { config } from "./config";
+import { logError } from "./log";
 
 export type MailTemplate = "verify_email" | "password_reset" | "workspace_invite";
 
@@ -80,7 +81,7 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
     result = sendWithConsole(message);
   }
   if (result.status === "failed") {
-    console.error(`[mail] ${message.template} to ${message.to} failed: ${result.error}`);
+    logError("mail.send_failed", result.error ?? "unknown", { template: message.template, transport: mailTransport });
   }
 
   try {
@@ -94,7 +95,7 @@ export async function sendMail(message: MailMessage): Promise<MailResult> {
       error: result.error,
     });
   } catch (error) {
-    console.error("[mail] Unable to record delivery:", error instanceof Error ? error.message : "unknown");
+    logError("mail.log_failed", error);
   }
   return result;
 }

@@ -186,3 +186,44 @@ export const emailLog = pgTable("op_email_log", {
   error: text("error"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("op_email_log_recipient").on(t.recipient, t.createdAt)]);
+
+/**
+ * Durable job queue. Rows are claimed with `FOR UPDATE SKIP LOCKED`, so several
+ * tick callers (a cron, a lambda, a second app instance) never run the same job
+ * twice, and a crashed worker's lease is reclaimed after the lease window.
+ * Backed by Postgres on purpose: no Redis, no worker host, no extra bill.
+ */
+export const jobs = pgTable("op_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  kind: varchar("kind", { length: 60 }).notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  /** pending | running | done | failed | dead */
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  runAt: timestamp("run_at", { withTimezone: true }).defaultNow().notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(6),
+  /** Idempotency key: prevents scheduling the same logical job twice. */
+  dedupeKey: varchar("dedupe_key", { length: 160 }).unique(),
+  workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "cascade" }),
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
+  lockedBy: varchar("locked_by", { length: 80 }),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("op_jobs_status_run_at").on(t.status, t.runAt),
+  index("op_jobs_kind_created").on(t.kind, t.createdAt),
+]);
+
+/** One row per execution attempt, so run history survives retries and dead letters. */
+export const jobRuns = pgTable("op_job_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  jobId: uuid("job_id").notNull().references(() => jobs.id, { onDelete: "cascade" }),
+  attempt: integer("attempt").notNull(),
+  /** succeeded | failed | dead */
+  status: varchar("status", { length: 20 }).notNull(),
+  durationMs: integer("duration_ms").notNull().default(0),
+  error: text("error"),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+}, (t) => [index("op_job_runs_job").on(t.jobId, t.startedAt)]);

@@ -20,7 +20,7 @@ it("generated migrations install all tables on a fresh database and can be rerun
     const tables = result.rows.map((row) => (row as { table_name: string }).table_name).sort();
     assert.deepEqual(tables, [
       "op_ai_usage", "op_audit_events", "op_billing_events", "op_email_log", "op_email_tokens", "op_files",
-      "op_memberships", "op_notifications",
+      "op_job_runs", "op_jobs", "op_memberships", "op_notifications",
       "op_payments", "op_rate_limits", "op_records", "op_sessions", "op_stock_movements", "op_subscriptions",
       "op_users", "op_workspaces",
     ], "every modelled table must exist after a fresh migration");
@@ -28,5 +28,7 @@ it("generated migrations install all tables on a fresh database and can be rerun
     const journal = await target.execute(sql`SELECT count(*)::integer AS count FROM drizzle.__drizzle_migrations`);
     const expected = (JSON.parse(readFileSync("opspilot/migrations/meta/_journal.json", "utf8")) as { entries: unknown[] }).entries.length;
     assert.equal(journal.rows[0].count, expected, "every generated migration must be recorded exactly once");
+    const { EXPECTED_MIGRATIONS } = await import("../../src/opspilot/server/version");
+    assert.equal(EXPECTED_MIGRATIONS, expected, "EXPECTED_MIGRATIONS (readiness probe) must match the migration journal");
   } finally { await targetPool.end(); await db.execute(sql`DROP DATABASE ${sql.identifier(name)}`); }
 });

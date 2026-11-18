@@ -66,8 +66,8 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 | --- | --- | --- | --- | --- |
 | T-301 | Storage abstraction: `PostgresFiles` (current) + `S3Files`; presigned download | P1 | open | Keep DB adapter for self-host; migrate lazily |
 | T-302 | Upload virus scanning hook | P3 | open | After object storage |
-| T-303 | `/api/health/ready` (migration state, version) + documented restore drill | P0 | open | Drill must be executed, not described |
-| T-304 | Structured JSON logs with request id + error tracking | P1 | open | One `log()` helper, no new console calls |
+| T-303 | `/api/health/ready` (migration state, version) + documented restore drill | P0 | **partial** | Probe done and tested; the drill is documented in `JOBS.md` but **not executed** (no `pg_dump` in this environment). Remains a launch blocker |
+| T-304 | Structured JSON logs with request id + error tracking | P1 | **done (logs) / open (tracking)** | `log.ts`, middleware request ids, redaction, `LOG_LEVEL`; no Sentry-style error tracker or metrics yet |
 | T-305 | Load test (50 concurrent) + connection-pool sizing | P2 | open | Record p95 and DB connection ceiling |
 | T-306 | Document delete + versions + per-document ACL | P2 | open | Needed before agencies upload client contracts |
 
@@ -75,11 +75,11 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 
 | ID | Task | Priority | Status | Notes |
 | --- | --- | --- | --- | --- |
-| T-401 | `jobs` table + `SKIP LOCKED` claim + `/api/jobs/tick` (cron) | P1 | open | No worker host required |
-| T-402 | Retry with exponential backoff, attempt cap, dead-letter status | P1 | open | Visible in an admin view |
-| T-403 | Scheduled/delayed actions (invoice reminders, task due notices) | P1 | open | First real automation customers ask for |
+| T-401 | `jobs` table + `SKIP LOCKED` claim + `/api/jobs/tick` (cron) | P1 | **done** | `op_jobs`/`op_job_runs`; lease reclaim; `JOBS_TICK_SECRET` fail-closed; 28 tests (`JOBS.md`) |
+| T-402 | Retry with exponential backoff, attempt cap, dead-letter status | P1 | **done** | 30s→1h backoff, attempt cap, `dead` terminal state, per-attempt history |
+| T-403 | Scheduled/delayed actions (invoice reminders, task due notices) | P1 | **partial** | In-app invoice reminders shipped; reminder **emails**, task due notices and dunning still open |
 | T-404 | Approval gates for consequential actions | P2 | open | Human-in-the-loop before emails/finance changes |
-| T-405 | Execution log + run history UI | P2 | open | Replaces the "runs" counter with real history |
+| T-405 | Execution log + run history UI | P2 | **partial** | `op_job_runs` + `GET /api/jobs` (owner/admin); no UI panel yet |
 
 ## M5 — Activation and retention
 

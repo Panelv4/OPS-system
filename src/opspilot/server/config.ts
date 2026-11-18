@@ -22,6 +22,7 @@ export type OpsConfig = {
   mailFrom: string;
   resendApiKey: string;
   appUrl: string;
+  jobsSecret: string;
   cookieSecure: boolean;
   trustProxy: boolean;
   aiEnabled: boolean;
@@ -98,6 +99,12 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
   const appUrl = (env.APP_URL ?? "http://localhost:3000").trim().replace(/\/$/, "");
   if (!/^https?:\/\/[^\s]+$/.test(appUrl)) throw new ConfigError("APP_URL must be an absolute http(s) URL.");
 
+  const jobsSecret = (env.JOBS_TICK_SECRET ?? "").trim();
+  if (jobsSecret && jobsSecret.length < 16) {
+    // The tick endpoint runs privileged work; a weak shared secret is worse than none.
+    throw new ConfigError("JOBS_TICK_SECRET must be at least 16 characters (or unset to keep the job runner disabled).");
+  }
+
   const openaiBaseUrl = (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/$/, "");
   if (aiEnabled && !/^https:\/\//.test(openaiBaseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(openaiBaseUrl)) {
     throw new ConfigError("OPENAI_BASE_URL must use https:// (plain http is only allowed for localhost).");
@@ -111,6 +118,7 @@ export function resolveConfig(env: EnvBag = process.env): OpsConfig {
     mailFrom,
     resendApiKey,
     appUrl,
+    jobsSecret,
     cookieSecure: cookieSecureFlag ?? isProduction,
     trustProxy,
     aiEnabled,
