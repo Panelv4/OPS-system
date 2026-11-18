@@ -44,3 +44,21 @@
 - Lint: no errors or warnings. Route generation, TypeScript, production build, and managed runtime health check passed.
 - Product home and registration pages were additionally rendered in Chromium with no runtime errors or horizontal overflow; mobile registration also fit its viewport.
 - Raw final validation logs are preserved in docs/validation.
+
+## 2026-11-18 — Preview embedding without weakening the default
+
+The app answers with `X-Frame-Options: DENY` and `frame-ancestors 'none'` so no page can
+frame it. A sandbox preview *is* a cross-origin frame, so it was blocked.
+
+Rather than special-casing middleware or trusting a runtime flag, `next.config.ts` now
+builds the headers from `PREVIEW_EMBED`, evaluated at build time (Next evaluates
+`headers()` at build time — this is documented behaviour, see AUDIT F-06):
+
+- default build → `X-Frame-Options: DENY`, `frame-ancestors 'none'` (unchanged, verified by
+  CI, which builds without the flag);
+- `PREVIEW_EMBED=true npx next build` → the header is omitted and the CSP allows framing.
+  Only those two directives change; HSTS, nosniff, Referrer-Policy, Permissions-Policy and
+  the rest of the CSP are untouched.
+
+Because it is a build-time flag, no runtime environment variable can relax framing on a
+production artifact.
