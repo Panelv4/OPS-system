@@ -53,3 +53,11 @@ During this delivery session, `npm audit --omit=dev` reported **0 production fin
 ## Reporting
 
 Do not put credentials, access tokens, private documents, or customer records in public issues. Send a minimal reproduction to the maintainer of your self-hosted instance. There is no external OpsPilot support service or certified compliance program configured by this application.
+
+## Preview embedding (`PREVIEW_EMBED`)
+
+Production builds send `X-Frame-Options: DENY` and `frame-ancestors 'none'`. A local/sandbox
+preview needs to be framed, so a build made with `PREVIEW_EMBED=true` omits the first and
+relaxes the second to `frame-ancestors *`. This is a **build-time** flag: a deployment that
+does not opt in cannot be switched into framing at runtime, and CI builds without it, so the
+shipped default stays DENY.

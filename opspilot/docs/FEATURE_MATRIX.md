@@ -36,7 +36,10 @@ have no implementation at all.
 | Background jobs | Done (infra) | Postgres queue with leases, retries, dead letters, cron tick; housekeeping + invoice reminders only |
 | Readiness probe | Done | `/api/health/ready` checks DB, migrations, queue, version |
 | Structured logs | Done | JSON lines, request ids, secret redaction (`JOBS.md`) |
-| Email delivery | Done (console) | Resend adapter written, no domain → nothing leaves the machine. T-201 |
+| GDPR export / delete | Done | `GET /api/account/export`, `DELETE /api/account`, in Settings |
+| Team management | Done (invite + roster) | Settings → Team; role change/removal pending |
+| Real plan catalogue in UI | Done | Settings plan tab + pricing modal read `GET /api/billing` |
+| Email delivery | Done (console / Brevo) | Resend adapter written, no domain → nothing leaves the machine. T-201 |
 | Session management UI | Absent | T-205 |
 | Rate limiting | Done (fixed) | DB-backed; per-address only with `TRUST_PROXY=true` |
 | Audit trail | Done | Append-only by construction; DB-level immutability not enforced (T-209) |

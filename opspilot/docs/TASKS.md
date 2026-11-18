@@ -35,7 +35,7 @@ Priority: **P0** = blocks taking money · **P1** = blocks self-serve launch · *
 | T-106 | Upgrade / downgrade / cancel / failed-payment / expiry state machine | P0 | **done** (no proration) | `applyBillingEvent` + `effectivePlanId`; grace 7d; every branch unit-tested |
 | T-107 | Entitlement enforcement (AI, storage, workflows) | P0 | **done** for 3 of 4 | seats blocked on T-204; all fail closed with 402 + plan name |
 | T-108 | Billing history page + receipts | P1 | open | `op_billing_events` is the source; `GET /api/billing` exists |
-| T-109 | Wire `Settings.tsx` plan tab to `GET /api/billing` (remove stale ₹101/₹499/₹1,499 copy) | P1 | open | UI currently shows "proposed plans" text |
+| T-109 | Wire `Settings.tsx` plan tab + PlansModal to `GET /api/billing` | P1 | **done** | `BillingPanel.tsx` renders the real catalogue, usage vs limits, and an honest "billing disabled" state; the ₹101/₹499/₹1,499 copy is gone |
 | T-110 | Trial creation + proration on mid-period upgrade | P2 | open | `trialing` status recognised but never set |
 
 **M1 progress:** billing core shipped in this pass (`BILLING.md`), test-mode only, no gateway and
@@ -52,11 +52,11 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 | T-204 | Workspace invitations + acceptance | P1 | **done** | `POST /api/members`, `/api/members/accept`, seat-enforced, role-bound |
 | T-205 | Session list + revoke-all + revoke-on-password-change | P2 | open | Needs `sessions.created_at`, user agent, last-seen |
 | T-206 | Nonce-based CSP, drop `unsafe-inline` | P2 | open | Verify in a real browser |
-| T-207 | Member management endpoints + UI (invite, role change, remove, audit) | P0 | open | RBAC exists but cannot be exercised |
+| T-207 | Member management endpoints + UI | P0 | **done** | Invite, roster, role change (`PATCH /api/members/:id`) and removal (`DELETE`) with audit events and session revocation; `TeamPanel.tsx` exposes all of it. Audit *export* lives in the account export |
 | T-208 | Breach-password check (HIBP k-anonymity) | P2 | open | Fail open on network error, log it |
 | T-209 | Revoke UPDATE/DELETE on `op_audit_events` for the app role | P2 | open | Deployment SQL, documented in runbook |
 | T-210 | Independent penetration test | P0 | needs approval | External cost/NDA; founder decision |
-| T-211 | Member management UI (invite form, roster, role change) | P2 | open | API exists (`/api/members`); Settings still has no team section |
+| T-211 | Member management UI (invite form, roster, role change) | P2 | **done** | Settings → Team: roster, pending invitations, invite form, inline role select and remove button for owners/admins |
 | T-212 | Require verified email before inviting or paying | P2 | open | `user.emailVerified` already exposed to the client |
 | T-213 | Consume Resend bounce/complaint webhooks; suppress hard bounces | P2 | open | Needs a live provider account |
 
@@ -68,7 +68,7 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 | T-302 | Upload virus scanning hook | P3 | open | After object storage |
 | T-303 | `/api/health/ready` (migration state, version) + documented restore drill | P0 | **partial** | Probe done and tested; the drill is documented in `JOBS.md` but **not executed** (no `pg_dump` in this environment). Remains a launch blocker |
 | T-304 | Structured JSON logs with request id + error tracking | P1 | **done (logs) / open (tracking)** | `log.ts`, middleware request ids, redaction, `LOG_LEVEL`; no Sentry-style error tracker or metrics yet |
-| T-305 | Load test (50 concurrent) + connection-pool sizing | P2 | open | Record p95 and DB connection ceiling |
+| T-305 | Load test (50 concurrent) + connection-pool sizing | P2 | **done (baseline)** | `opspilot/scripts/load-test.mjs`, 0 errors at 350–550 reads, p50 141–201 ms on a single-core sandbox; `PGPOOL_MAX` added. Numbers bound the shape, not production capacity |
 | T-306 | Document delete + versions + per-document ACL | P2 | open | Needed before agencies upload client contracts |
 
 ## M4 — Automations that agencies actually pay for
@@ -97,11 +97,11 @@ no live charging. Remaining M1 work: hosted checkout page (§7 of `BILLING.md`),
 
 | ID | Task | Priority | Status | Notes |
 | --- | --- | --- | --- | --- |
-| T-601 | Competitor and pricing research with citations (Zoho, Odoo, ERPNext, Productive, Scoro) | P1 | open | No fabricated claims; cite sources |
-| T-602 | Choose primary + secondary market with evidence | P1 | open | Recommendation, not all five |
-| T-603 | Privacy policy, terms, DPA, subprocessor list | P0 | open | Lawyer review required |
-| T-604 | Account data export + deletion endpoints (GDPR) | P1 | open | Prerequisite for EU customers |
-| T-605 | Zero-budget GTM: outreach playbook, content calendar, Product Hunt plan | P2 | open | No automated sending without approval |
+| T-601 | Competitor and pricing research with citations (Zoho, Odoo, ERPNext, Productive, Scoro) | P1 | **done** | `MARKET_RESEARCH.md`, every price cited with a date and a caveat |
+| T-602 | Choose primary + secondary market with evidence | P1 | **done** | Primary: US/UK/CA/AU agencies 3–20 seats; secondary: India as free-plan market. Reasoning and the gaps that disqualify us are in the same doc |
+| T-603 | Privacy policy, terms, DPA, subprocessor list | P0 | **drafted** | `opspilot/legal/` (4 documents + README). Drafts only: **must be reviewed by a lawyer and the placeholders filled before publication** |
+| T-604 | Account data export + deletion endpoints (GDPR) | P1 | **done** | `GET /api/account/export`, `DELETE /api/account` (password + literal DELETE, owner-with-teammates refused), wired into Settings → Account & security; 5 tests |
+| T-605 | Zero-budget GTM: outreach playbook, content calendar, Product Hunt plan | P2 | **done** | `GTM.md`: 20 named-prospect emails, 30-day sequence, honest targets, explicit no-ads/no-automation rules |
 | T-606 | Referral programme design (no payouts until reviewed) | P3 | open | Legal/payment implications |
 
 ---

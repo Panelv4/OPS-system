@@ -1,11 +1,16 @@
 /**
  * Outbound email.
  *
- * One interface, two transports:
+ * One interface, three transports:
  *  - `console` writes the message to the server log and the delivery table. Used
  *    in development, CI and any deployment without a sending domain. Nothing
  *    leaves the machine, and links are still verifiable by a developer.
- *  - `resend` posts to the Resend HTTP API with fetch — no SDK, no new dependency.
+ *  - `brevo` posts to the Brevo REST API. This is the zero-cost path that works
+ *    *today* without buying a domain: Brevo verifies a single sender address with
+ *    a confirmation code, so a personal or work inbox can be the From address.
+ *    Free plan: 300 emails/day (see docs/EMAIL.md for the limits and caveats).
+ *  - `resend` posts to the Resend HTTP API with fetch — the better long-term
+ *    option once a domain exists, because only then can DKIM/DMARC be aligned.
  *
  * Every attempt is logged to `op_email_log` so support can answer "did it send?".
  * Failures never throw into the caller's request path: registration must not fail
@@ -30,6 +35,14 @@ export type MailMessage = {
 export type MailResult = { status: "sent" | "failed" | "suppressed"; providerId?: string; error?: string };
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
+
+/** Splits `OpsPilot <no-reply@example.com>` into a provider sender object. */
+export function parseSender(from: string): { name?: string; email: string } {
+  const match = /^\s*(.*?)\s*<([^<>]+)>\s*$/.exec(from);
+  if (match) return { name: match[1] || undefined, email: match[2].trim() };
+  return { email: from.trim() };
+}
 
 async function sendWithResend(message: MailMessage, apiKey: string, from: string): Promise<MailResult> {
   try {
@@ -52,6 +65,53 @@ async function sendWithResend(message: MailMessage, apiKey: string, from: string
   }
 }
 
+/**
+ * Brevo transport. Chosen because it is the only mainstream provider that lets you
+ * send to *any* recipient at zero cost without owning a domain: the From address is
+ * verified once with a 6-digit code sent to that inbox.
+ *
+ * Known limits (docs/EMAIL.md): 300 emails/day on the free plan, a "Sent with Brevo"
+ * footer, and no DKIM/DMARC alignment for a free sender domain — so expect weaker
+ * inbox placement than a properly authenticated domain.
+ */
+export async function sendWithBrevo(
+  message: MailMessage,
+  apiKey: string,
+  from: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<MailResult> {
+  try {
+    const response = await fetchImpl(BREVO_ENDPOINT, {
+      method: "POST",
+      headers: { "api-key": apiKey, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        sender: parseSender(from),
+        to: [{ email: message.to }],
+        subject: message.subject,
+        textContent: message.text,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return { status: "failed", error: `${brevoHint(response.status)} Brevo ${response.status}: ${detail.slice(0, 300)}` };
+    }
+    const body = (await response.json().catch(() => ({}))) as { messageId?: string; messageIds?: string[] };
+    return { status: "sent", providerId: body.messageId ?? body.messageIds?.[0] };
+  } catch (error) {
+    return { status: "failed", error: error instanceof Error ? error.message.slice(0, 300) : "unknown error" };
+  }
+}
+
+/** Turns a provider status code into the action that actually fixes it. */
+export function brevoHint(status: number): string {
+  if (status === 401) return "Check BREVO_API_KEY.";
+  if (status === 400) return "Verify the MAIL_FROM address under Brevo → Senders (no domain required).";
+  if (status === 402) return "Daily free-plan quota exhausted (300/day); wait or upgrade.";
+  if (status === 429) return "Brevo rate limit; retry later.";
+  return "";
+}
+
 /** Console transport: logs the message so a developer can follow the link. */
 function sendWithConsole(message: MailMessage): MailResult {
   const lines = [
@@ -72,11 +132,13 @@ function sendWithConsole(message: MailMessage): MailResult {
  * table plus the server log.
  */
 export async function sendMail(message: MailMessage): Promise<MailResult> {
-  const { mailTransport, resendApiKey, mailFrom } = config();
+  const { mailTransport, resendApiKey, brevoApiKey, mailFrom } = config();
 
   let result: MailResult;
   if (mailTransport === "resend") {
     result = await sendWithResend(message, resendApiKey, mailFrom);
+  } else if (mailTransport === "brevo") {
+    result = await sendWithBrevo(message, brevoApiKey, mailFrom);
   } else {
     result = sendWithConsole(message);
   }

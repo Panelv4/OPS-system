@@ -27,13 +27,13 @@ this environment · **RED** = missing or unsafe for launch.
 | Backups | AMBER | `opspilot/scripts/backup.sh` (pg_dump custom format) exists; **no restore was ever executed** |
 | Restore drill | **RED** | Never performed. Do not go live without one |
 | Observability | AMBER | JSON logs + request ids + readiness probe shipped (`JOBS.md`); no error tracker, metrics or alerting yet |
-| Email (verify/reset/invite) | AMBER | Flows implemented and tested; delivery runs on the console transport until a domain is verified (T-201) |
+| Email (verify/reset/invite) | AMBER | Flows tested; Brevo transport added so delivery needs no domain (300/day free). Live delivery still unverified — no account exists |
 | Billing / payments | AMBER | Plans, entitlements and webhook state machine shipped in test mode; no merchant account, no hosted checkout, no live charging (T-103a/T-104) |
 | Member management | AMBER | Invite + accept + seats work via API and links; no management UI yet (T-211) |
 | Background jobs | AMBER | `op_jobs` queue, `SKIP LOCKED`, retries, dead letters, `/api/jobs/tick` + cron; handlers are housekeeping and in-app invoice reminders only |
 | Object storage | RED | Documents are base64 in Postgres |
-| Data export / deletion (GDPR) | RED | No account export/deletion |
-| Legal pages (privacy/terms/DPA) | RED | Not drafted in this repository |
+| Data export / deletion (GDPR) | AMBER | Export + delete shipped and tested; backup retention and processor agreements still needed |
+| Legal pages (privacy/terms/DPA) | AMBER | Drafts in `opspilot/legal/`; **not published**, not lawyer-reviewed, placeholders unfilled |
 
 ---
 
@@ -94,7 +94,7 @@ item that can scale faster than revenue.
 - [x] T-304 structured logs · [ ] error tracking hitting a real dashboard
 - [ ] Backup **restore** drill, documented with timings (T-303)
 - [ ] `docker build` + `docker compose up` executed by a human or CI on a Docker-capable runner
-- [ ] Load test: 50 concurrent users on the API suite endpoints; watch DB connections (T-305)
+- [x] Load test: 50 concurrent sessions, 0 errors, p50 141–201 ms on a single-core sandbox (T-305) — re-run against the real deployment before quoting a number
 
 ### Security
 - [ ] Independent penetration test (T-210) — at minimum a second pair of eyes on auth + tenancy

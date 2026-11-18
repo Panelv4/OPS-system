@@ -75,8 +75,9 @@ curl -fsS -X POST http://localhost:3000/api/jobs/tick -H "Authorization: Bearer 
 
 Verification, password recovery and invitations are implemented with single-use, hashed,
 purpose-bound tokens. Delivery defaults to the `console` transport (the message is logged and
-recorded in `op_email_log`); set `MAIL_TRANSPORT=resend` with a verified sending domain to deliver
-real mail. Open links land on `/login?mode=verify|reset|invite`. See [EMAIL.md](opspilot/docs/EMAIL.md).
+recorded in `op_email_log`). Set `MAIL_TRANSPORT=brevo` with `BREVO_API_KEY` to deliver real mail
+**without owning a domain** (Brevo verifies a single sender address; free plan 300/day), or
+`MAIL_TRANSPORT=resend` once a domain exists. Open links land on `/login?mode=verify|reset|invite`. See [EMAIL.md](opspilot/docs/EMAIL.md).
 
 ## Billing
 

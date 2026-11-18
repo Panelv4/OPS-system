@@ -41,6 +41,7 @@ services:
       BILLING_WEBHOOK_SECRET: ${BILLING_WEBHOOK_SECRET:-}
       MAIL_TRANSPORT: ${MAIL_TRANSPORT:-console}
       MAIL_FROM: ${MAIL_FROM:-OpsPilot <no-reply@localhost>}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       APP_URL: ${APP_URL:-http://localhost:3000}
       JOBS_TICK_SECRET: ${JOBS_TICK_SECRET:-}
