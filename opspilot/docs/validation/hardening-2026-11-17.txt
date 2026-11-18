@@ -1,0 +1,92 @@
+# Validation log — baseline and hardening pass
+
+Date: 2026-11-17 · Commit before changes: `5cbc3af` · Environment: Next.js 16.4.6, Node.js 22.22.3,
+PostgreSQL 18.6 (embedded, port 55432), no Docker daemon, no Chromium.
+
+## Baseline (unmodified code)
+
+```
+npm ci                                            -> added 396 packages
+npx tsx opspilot/scripts/migrate.ts               -> OpsPilot migrations applied successfully.
+npm run lint                                      -> pass (no output = no findings)
+npx next typegen                                  -> Types generated successfully
+npx tsc --noEmit --pretty false                   -> pass
+npm run build                                     -> pass, 14 routes
+npm audit --omit=dev --audit-level=moderate       -> found 0 vulnerabilities
+npx tsx --test domain.test.ts migrations.test.ts  -> # tests 24  # pass 24  # fail 0
+npx tsx --test opspilot/tests/api.test.ts         -> # tests 21  # pass 21  # fail 0
+```
+
+Response headers observed on `/`:
+
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; ...
+(no Strict-Transport-Security)
+```
+
+## Exploit probes against the baseline
+
+```
+FIXED XFF     first429: 41 | tally: {"401":40,"429":5}
+ROTATING XFF  first429: 0  | tally: {"401":45}      <-- IP rate limit bypassed by header spoofing
+SAME EMAIL/ROT first429: 16                          <-- per-email limit does hold
+SET-COOKIE opspilot_session=...; Path=/; Expires=+7d; HttpOnly; SameSite=lax
+DEMO rotating XFF: created 6 of 6                   <-- unlimited disposable workspaces
+DUPLICATE-EMAIL [[409,10],[409,7],[409,7]] ms       <-- 7 ms
+NEW-EMAIL       [[201,52],[201,50],[201,55]] ms     <-- 52 ms (timing oracle)
+op_rate_limits rows after probing: 187 (never pruned)
+```
+
+## After the hardening pass
+
+```
+npx tsc --noEmit                                  -> pass
+npm run lint                                      -> pass
+npm run build                                     -> pass
+npx tsx --test domain + migrations + hardening    -> # tests 34  # pass 34  # fail 0
+npx tsx --test opspilot/tests/api.test.ts         -> # tests 21  # pass 21  # fail 0
+```
+
+Probes after the fix:
+
+```
+FIXED XFF     first429: 0  | tally: {"401":45}    <-- no per-address limiter without TRUST_PROXY
+ROTATING XFF  first429: 0  | tally: {"401":45}    <-- spoofing no longer buys extra attempts
+SAME EMAIL/ROT first429: 1                        <-- per-email limit still binds
+DUPLICATE-EMAIL [[409,53],[409,44],[409,41]] ms   <-- timing equalised
+NEW-EMAIL       [[201,53],[201,50],[201,55]] ms
+Strict-Transport-Security: max-age=63072000; includeSubDomains   (verified with curl)
+```
+
+Boot with invalid configuration (verified):
+
+```
+DATABASE_URL unset            -> [config] Startup aborted: DATABASE_URL is required.
+TRUST_PROXY=maybe             -> [config] Startup aborted: TRUST_PROXY must be "true" or "false" (...)
+AI_ENABLED=true, no key       -> [config] Startup aborted: AI_ENABLED=true requires OPENAI_API_KEY.
+COOKIE_SECURE=false in prod   -> warning only (keeps CI green, loud in logs)
+```
+
+## Docker runtime layout simulation
+
+No Docker daemon is available in this sandbox, so the image was approximated by assembling exactly
+the files the `Dockerfile` copies and running the container's commands against them:
+
+```
+/tmp/runtime = .next + public + next.config.ts + tsconfig.json + package*.json
+             + src/db + src/opspilot/server + opspilot/migrations + opspilot/scripts/migrate.ts
+npm ci --omit=dev                                  -> added 56 packages
+npx tsx opspilot/scripts/migrate.ts                -> OpsPilot migrations applied successfully.
+npx next start -p 3010                             -> Ready in 117 ms
+GET /api/health                                    -> {"ok":true}
+GET /login                                         -> 200
+```
+
+This simulation caught a real regression: adding `src/opspilot/server/config.ts` (imported by
+`src/db/index.ts`) broke the migration step because the runtime stage did not copy that directory.
+The `Dockerfile` was corrected and the simulation re-run green. The image build itself
+(`docker build`) remains unverified — see `PRODUCTION_READINESS.md`.

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.0 — Audit and hardening pass
+
+### Added
+- `config.ts` with validated runtime configuration and fail-fast startup via `instrumentation.ts`
+  (missing/malformed `DATABASE_URL`, bad flags, `AI_ENABLED` without a key, plain-HTTP AI endpoints).
+- `TRUST_PROXY` setting: forwarded headers are only trusted when explicitly enabled.
+- `pruneExpiredData()` housekeeping: expired sessions, expired rate-limit buckets, and demo
+  workspaces older than 24 hours, backed by new `expires_at` indexes (migration `0001`).
+- `Strict-Transport-Security` header; `HEALTHCHECK` in the image; one-shot `migrate` compose service.
+- Hardening test suite (10 cases) and audit documentation: `AUDIT.md`, `SECURITY_AUDIT.md`,
+  `PRODUCTION_READINESS.md`, `FEATURE_MATRIX.md`, `IMPLEMENTATION_ROADMAP.md`, `TASKS.md`.
+
+### Security
+- Fixed a rate-limit bypass: rotating `X-Forwarded-For` produced 45/45 unthrottled login attempts.
+- Registration no longer leaks account existence through response timing (7 ms vs 52 ms).
+- Demo workspace creation is capped (120/hour globally, 15/hour per address behind a proxy).
+- Container startup no longer runs migrations, so replicas cannot race a schema change.
+
+### Fixed
+- Docker runtime stage was missing `src/opspilot/server`, which the migration script imports.
+- Migration test now asserts against the journal entry count instead of a hard-coded `1`.
+- CI actions updated to v7 (Node 20 deprecation).
+
 ## 0.1.0 — OpsPilot foundation
 
 ### Added

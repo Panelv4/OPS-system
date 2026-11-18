@@ -26,7 +26,7 @@ export const sessions = pgTable("op_sessions", {
   userId: uuid("user_id").notNull(),
   workspaceId: uuid("workspace_id").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-}, (t) => [foreignKey({ columns: [t.workspaceId, t.userId], foreignColumns: [memberships.workspaceId, memberships.userId] }).onDelete("cascade")]);
+}, (t) => [foreignKey({ columns: [t.workspaceId, t.userId], foreignColumns: [memberships.workspaceId, memberships.userId] }).onDelete("cascade"), index("op_sessions_expires").on(t.expiresAt)]);
 
 export const records = pgTable("op_records", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -95,7 +95,7 @@ export const rateLimits = pgTable("op_rate_limits", {
   key: varchar("key", { length: 64 }).primaryKey(),
   count: integer("count").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-});
+}, (t) => [index("op_rate_limits_expires").on(t.expiresAt)]);
 export const aiUsage = pgTable("op_ai_usage", {
   id: uuid("id").defaultRandom().primaryKey(),
   workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
